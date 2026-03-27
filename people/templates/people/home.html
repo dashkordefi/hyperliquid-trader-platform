@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Тестовый Django проект</title>
+</head>
+<body>
+    <h1>Сайт с ролями</h1>
+    <p>Вы вошли как: {{ request.user.username }}</p>
+
+    <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit">Выйти</button>
+    </form>
+
+    {% if can_add %}
+        <p>
+            <a href="{% url 'add_record' %}">
+                <button type="button">Добавить запись (роль admin)</button>
+            </a>
+        </p>
+    {% endif %}
+
+    {% if can_fetch %}
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" name="fetch_data">Получить данные (роль user)</button>
+        </form>
+    {% endif %}
+
+    {% if not can_add and not can_fetch %}
+        <p>У вас нет назначенной роли. Попросите администратора добавить вас в группу.</p>
+    {% endif %}
+
+    {% if show_data %}
+        <h2>Список записей</h2>
+        {% if records %}
+            <ul>
+                {% for record in records %}
+                    <li>{{ record.last_name }}, {{ record.first_name }}, {{ record.age }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Записей пока нет.</p>
+        {% endif %}
+    {% endif %}
+</body>
+</html>
