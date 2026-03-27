@@ -1,0 +1,12 @@
+Репозитории (после разделения)
+===============================
+
+origin (основной push/pull для HL trading):
+  https://github.com/dashkordefi/hyperliquid-trader-platform
+
+test_django (старый тестовый проект без приложения trading, коммит до HL):
+  https://github.com/dashkordefi/test_django_project
+  Ветка main откинута к состоянию «Prepare Django app for Render deploy» (без trading).
+
+Если в Render был подключён test_django_project — в настройках сервиса смените репозиторий
+на hyperliquid-trader-platform и пересоберите.
