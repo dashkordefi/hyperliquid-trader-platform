@@ -1,0 +1,33 @@
+{% extends "trading/base.html" %}
+{% block title %}Выбор кошелька{% endblock %}
+{% block content %}
+<h1>Выбор аккаунта</h1>
+<p class="muted">Подключаемый аккаунт определяется выбранным кошельком. Депозит доступен позже на странице торговли.</p>
+
+<div class="card">
+    <h2>Ваши кошельки</h2>
+    {% if wallets %}
+        <form method="post">{% csrf_token %}
+            <input type="hidden" name="select_wallet" value="1">
+            <label for="wallet_id">Активный кошелёк</label>
+            <select name="wallet_id" id="wallet_id">
+                {% for w in wallets %}
+                    <option value="{{ w.pk }}">{{ w.label }} — {{ w.address }}</option>
+                {% endfor %}
+            </select>
+            <p style="margin-top:0.75rem"><button type="submit">Перейти к торговле</button></p>
+        </form>
+    {% else %}
+        <p class="muted">Добавьте хотя бы один именованный кошелёк ниже.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Добавить кошелёк</h2>
+    <form method="post">{% csrf_token %}
+        <input type="hidden" name="add_wallet" value="1">
+        {{ form.as_p }}
+        <button type="submit">Сохранить</button>
+    </form>
+</div>
+{% endblock %}

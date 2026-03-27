@@ -1,0 +1,14 @@
+{% extends "trading/base.html" %}
+{% block title %}{% if kind == "deposit" %}Депозит{% else %}Вывод{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if kind == "deposit" %}Заявка на депозит{% else %}Заявка на вывод{% endif %}</h1>
+<p class="muted">Кошелёк: {{ wallet.label }} · После создания заявки нужны два согласования (compliance и middle office).</p>
+
+<div class="card">
+    <form method="post">{% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Отправить заявку</button>
+        <a href="{% url 'dashboard' %}" class="btn secondary" style="margin-left:0.5rem">Назад</a>
+    </form>
+</div>
+{% endblock %}

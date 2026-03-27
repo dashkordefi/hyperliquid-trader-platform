@@ -1,0 +1,32 @@
+Деплой на Render.com (бесплатный веб)
+====================================
+
+1. Залейте проект в GitHub (ветка main).
+2. Зайдите на https://render.com → New → Blueprint
+3. Подключите репозиторий, выберите render.yaml (или создайте Web Service вручную).
+4. После первого деплоя откройте Dashboard сервиса → Environment и добавьте:
+   - ALLOWED_HOSTS = <имя-сервиса>.onrender.com
+   - CSRF_TRUSTED_ORIGINS = https://<имя-сервиса>.onrender.com
+   - RENDER_EXTERNAL_HOSTNAME = <имя-сервиса>.onrender.com
+      (опционально, дублирует хост в ALLOWED_HOSTS)
+5. Для постоянной БД: в Render добавьте PostgreSQL (Free) и подключите к сервису — подставится DATABASE_URL.
+   Без Postgres используется SQLite на диске; на free tier данные могут теряться при перезапуске.
+6. Создать суперпользователя: в Render → Shell:
+   python manage.py createsuperuser
+   python manage.py init_roles
+
+Локальный Gunicorn (как в проде)
+================================
+cd "hyperliquid prototype"
+. .venv/bin/activate
+export DEBUG=False
+export ALLOWED_HOSTS=127.0.0.1,localhost
+gunicorn config.wsgi:application --bind 127.0.0.1:8000
+
+Открыть в браузере: http://127.0.0.1:8000/
+
+Публичный URL через туннель (без Render)
+========================================
+Установите ngrok или cloudflared и выполните, например:
+  cloudflared tunnel --url http://127.0.0.1:8000
+После запуска gunicorn в другом терминале.

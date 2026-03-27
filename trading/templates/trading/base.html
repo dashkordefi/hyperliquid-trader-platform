@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Hyperliquid{% endblock %}</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --panel: #161b22;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --border: #30363d;
+            --ok: #3fb950;
+            --warn: #d29922;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        header {
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            background: var(--panel);
+        }
+        header nav { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+        main { padding: 1.25rem; max-width: 1200px; margin: 0 auto; }
+        .muted { color: var(--muted); font-size: 0.9rem; }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+        h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 0.5rem; }
+        h2 { font-size: 1.1rem; margin: 0 0 0.75rem; color: var(--muted); font-weight: 600; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.5rem 0.6rem;
+            border-bottom: 1px solid var(--border);
+        }
+        th { color: var(--muted); font-weight: 500; }
+        button, .btn {
+            display: inline-block;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 0.45rem 0.9rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        button.secondary, .btn.secondary { background: #21262d; color: var(--text); border: 1px solid var(--border); }
+        button.danger { background: #da3633; }
+        input, select, textarea {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.45rem 0.6rem;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 420px;
+        }
+        label { display: block; margin-top: 0.75rem; margin-bottom: 0.25rem; color: var(--muted); font-size: 0.85rem; }
+        .messages { list-style: none; padding: 0; margin: 0 0 1rem; }
+        .messages li { padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 0.35rem; }
+        .messages .success { background: rgba(63, 185, 80, 0.15); border: 1px solid var(--ok); }
+        .messages .error { background: rgba(218, 54, 51, 0.15); border: 1px solid #da3633; }
+        .messages .warning { background: rgba(210, 153, 34, 0.12); border: 1px solid var(--warn); }
+        .messages .info { background: rgba(88, 166, 255, 0.12); border: 1px solid var(--accent); }
+        .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
+        code { font-size: 0.85em; background: #21262d; padding: 0.1rem 0.35rem; border-radius: 4px; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header>
+        <strong><a href="{% url 'landing' %}" style="color:inherit">HL Trader</a></strong>
+        <nav>
+            {% if user.is_authenticated %}
+                <span class="muted">{{ user.username }}</span>
+                {% if user.groups.all %}
+                    <span class="muted">({{ user.groups.all|join:", " }})</span>
+                {% endif %}
+                {% if is_trader %}
+                    <a href="{% url 'wallet_select' %}">Кошельки</a>
+                    <a href="{% url 'dashboard' %}">Торговля</a>
+                {% endif %}
+                {% if is_compliance or is_middleoffice %}
+                    <a href="{% url 'approvals_list' %}">Согласования</a>
+                {% endif %}
+                <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button type="submit" class="secondary">Выйти</button></form>
+            {% else %}
+                <a href="{% url 'login' %}">Войти</a>
+                <a href="{% url 'register' %}">Регистрация</a>
+            {% endif %}
+        </nav>
+    </header>
+    <main>
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

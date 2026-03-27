@@ -57,8 +57,8 @@ def register(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            users_group, _ = Group.objects.get_or_create(name="users")
-            user.groups.add(users_group)
+            traders_group, _ = Group.objects.get_or_create(name="traders")
+            user.groups.add(traders_group)
             messages.success(
                 request,
                 "Пользователь зарегистрирован. Войдите в систему.",

@@ -1,0 +1,32 @@
+{% extends "trading/base.html" %}
+{% block title %}Согласования{% endblock %}
+{% block content %}
+<h1>Заявки на депозит и вывод</h1>
+<p class="muted">Compliance и middle office подтверждают независимо. Когда оба подтверждения есть — заявка готова к исполнению в оркестраторе HL.</p>
+
+{% for r in requests %}
+<div class="card">
+    <p><strong>{{ r.get_kind_display }}</strong> · {{ r.amount }} · {{ r.get_route_display }}</p>
+    <p class="muted">Кошелёк: {{ r.wallet.label }} · {{ r.wallet.address }} · пользователь: {{ r.wallet.user.username }}</p>
+    {% if r.note %}<p>Комментарий: {{ r.note }}</p>{% endif %}
+    <p>Compliance: {% if r.compliance_approved_at %}✓ {{ r.compliance_approved_at }} ({{ r.compliance_approved_by }}){% else %}—{% endif %}</p>
+    <p>Middle office: {% if r.middleoffice_approved_at %}✓ {{ r.middleoffice_approved_at }} ({{ r.middleoffice_approved_by }}){% else %}—{% endif %}</p>
+    <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+        {% if is_compliance %}
+        <form method="post" action="{% url 'approval_action' r.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="compliance">
+            <button type="submit" {% if r.compliance_approved_at %}disabled class="secondary"{% endif %}>Подтвердить (compliance)</button>
+        </form>
+        {% endif %}
+        {% if is_middleoffice %}
+        <form method="post" action="{% url 'approval_action' r.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="middleoffice">
+            <button type="submit" {% if r.middleoffice_approved_at %}disabled class="secondary"{% endif %}>Подтвердить (middle office)</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<p class="muted">Заявок пока нет.</p>
+{% endfor %}
+{% endblock %}

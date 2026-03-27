@@ -1,0 +1,121 @@
+{% extends "trading/base.html" %}
+{% block title %}Торговля — {{ wallet.label }}{% endblock %}
+{% block content %}
+<h1>Основная страница</h1>
+<p class="muted">Аккаунт: <strong>{{ wallet.label }}</strong> · <code>{{ wallet.address }}</code></p>
+
+<div class="row card" style="align-items:center">
+    <form method="get" class="row">
+        <div>
+            <label for="coin">Рынок (coin для API)</label>
+            <input name="coin" id="coin" value="{{ coin }}" placeholder="ETH, @151, xyz:TSLA…">
+        </div>
+        <button type="submit">Показать</button>
+    </form>
+    <a href="{% url 'deposit_request' %}" class="btn">Депозит</a>
+    <a href="{% url 'withdraw_request' %}" class="btn secondary">Вывод</a>
+    <a href="{% url 'wallet_select' %}" class="btn secondary">Сменить кошелёк</a>
+</div>
+
+{% if data.error %}
+<div class="card"><p class="muted">Ошибка Info API: {{ data.error }}</p></div>
+{% endif %}
+{% if data.errors_extra %}
+<div class="card"><p class="muted">Частичные ошибки: {{ data.errors_extra|join:"; " }}</p></div>
+{% endif %}
+
+<div class="card">
+    <h2>Mid-цена ({{ coin }})</h2>
+    {% if data.mid %}<p><strong>{{ data.mid }}</strong></p>{% else %}<p class="muted">Нет в allMids для этого coin.</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Спот-балансы (ненулевые)</h2>
+    {% if data.spot_balances %}
+        <table>
+            <thead><tr><th>Coin</th><th>Token</th><th>Balance</th><th>Hold</th><th>Entry Ntl</th></tr></thead>
+            <tbody>
+            {% for r in data.spot_balances %}
+                <tr>
+                    <td>{{ r.coin }}</td><td>{{ r.token }}</td><td>{{ r.total }}</td><td>{{ r.hold }}</td><td>{{ r.entry_ntl }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="muted">Нет ненулевых спот-балансов или данные недоступны.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Перп: сводка</h2>
+    {% if data.perp_summary %}
+        <p>Account value: {{ data.perp_summary.account_value }} · Withdrawable: {{ data.perp_summary.withdrawable }} · Margin used: {{ data.perp_summary.total_margin_used }}</p>
+    {% else %}
+        <p class="muted">Нет данных clearinghouse.</p>
+    {% endif %}
+    <h2>Позиции</h2>
+    {% if data.perp_positions %}
+        <table>
+            <thead><tr><th>Coin</th><th>Size</th><th>Entry</th><th>Value</th><th>uPnL</th></tr></thead>
+            <tbody>
+            {% for p in data.perp_positions %}
+                <tr>
+                    <td>{{ p.coin }}</td><td>{{ p.szi }}</td><td>{{ p.entry_px }}</td><td>{{ p.position_value }}</td><td>{{ p.unrealized_pnl }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="muted">Нет открытых перп-позиций.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Открытые ордера</h2>
+    {% if data.open_orders %}
+        <table>
+            <thead><tr><th>Coin</th><th>Side</th><th>Limit</th><th>Size</th><th>OID</th></tr></thead>
+            <tbody>
+            {% for o in data.open_orders %}
+                <tr><td>{{ o.coin }}</td><td>{{ o.side }}</td><td>{{ o.limit_px }}</td><td>{{ o.sz }}</td><td>{{ o.oid }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="muted">Нет открытых ордеров.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Стакан L2 (фрагмент)</h2>
+    <p class="muted">Данные l2Book для <code>{{ coin }}</code> — ниже сырые уровни (если рынок существует).</p>
+    <pre style="overflow:auto;max-height:200px;font-size:0.75rem">{{ data.l2_book|default:"—" }}</pre>
+</div>
+
+<div class="card">
+    <h2>Свечи (последние строки в таблицу)</h2>
+    <p class="muted">Источник candleSnapshot, интервал 1h, ~7 дней назад.</p>
+    {% if candle_rows %}
+        <table>
+            <thead><tr><th>Время (ms)</th><th>O</th><th>H</th><th>L</th><th>C</th><th>Vol</th></tr></thead>
+            <tbody>
+            {% for c in candle_rows %}
+                <tr>
+                    <td>{{ c.time_ms }}</td><td>{{ c.open }}</td><td>{{ c.high }}</td><td>{{ c.low }}</td><td>{{ c.close }}</td><td>{{ c.volume }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="muted">Нет свечей или неверный coin.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Ордера Market / Limit</h2>
+    <p class="muted">Размещение ордеров на Hyperliquid требует подписи L1 (как в <code>hyperliquid_account.place_order</code>). Подключение кошелька в браузере и подпись — следующий этап интеграции.</p>
+    <p><button type="button" disabled class="secondary">Market (демо)</button>
+    <button type="button" disabled class="secondary">Limit (демо)</button></p>
+</div>
+{% endblock %}
