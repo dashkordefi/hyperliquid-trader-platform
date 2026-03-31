@@ -151,7 +151,7 @@
         </nav>
     </header>
     {% if is_trader and funds_bridge_banner_ops %}
-    <div class="funds-bridge-banner" role="status" aria-live="polite">
+    <div id="funds-bridge-banner-root" class="funds-bridge-banner" role="status" aria-live="polite">
         <div class="funds-bridge-banner-inner">
             {% for op in funds_bridge_banner_ops %}
             <p>
@@ -163,6 +163,45 @@
             {% endfor %}
         </div>
     </div>
+    <script>
+    (function () {
+        var pollUrl = "{% url 'funds_bridge_poll' %}";
+        var intervalMs = 60000;
+        function getCookie(name) {
+            var m = document.cookie.match("(^|;)\\s*" + name + "\\s*=\\s*([^;]+)");
+            return m ? decodeURIComponent(m.pop()) : "";
+        }
+        function poll() {
+            var token = getCookie("csrftoken");
+            if (!token) return;
+            fetch(pollUrl, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "X-CSRFToken": token,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            })
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (data) {
+                    if (!data || !data.ok) return;
+                    if (data.pending_bridge_count === 0) {
+                        var el = document.getElementById("funds-bridge-banner-root");
+                        if (el) el.remove();
+                        if (window._fundsBridgePollTimer) {
+                            clearInterval(window._fundsBridgePollTimer);
+                            window._fundsBridgePollTimer = null;
+                        }
+                    }
+                })
+                .catch(function () {});
+        }
+        setTimeout(poll, 4000);
+        window._fundsBridgePollTimer = setInterval(poll, intervalMs);
+    })();
+    </script>
     {% endif %}
     <main class="{% block main_class %}{% endblock %}">
         {% if messages %}

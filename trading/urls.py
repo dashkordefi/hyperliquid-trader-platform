@@ -16,6 +16,11 @@ urlpatterns = [
     path("trades/", views.trade_history, name="trade_history"),
     path("funds/history/", views.funds_history, name="funds_history"),
     path(
+        "api/funds/bridge-poll/",
+        views.funds_bridge_poll,
+        name="funds_bridge_poll",
+    ),
+    path(
         "dashboard/usdc-transfer/",
         views.usdc_class_transfer,
         name="usdc_class_transfer",

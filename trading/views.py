@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from django.contrib import messages
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -40,6 +43,7 @@ from .funds_execution import try_execute_approved_deposit, try_execute_approved_
 from .models import FundsOperationRequest, TraderWallet
 from eth_account import Account
 
+from .arbitrum_withdrawal import try_finalize_usdc_withdrawals_for_wallet_arbiscan
 from .wallet_crypto import decrypt_trading_key, encrypt_trading_key
 
 SESSION_WALLET_KEY = "active_trader_wallet_id"
@@ -71,6 +75,46 @@ def _is_middleoffice(user) -> bool:
     if user.is_superuser:
         return True
     return user.groups.filter(name=GROUP_MIDDLEOFFICE).exists()
+
+
+def _pending_usdc_arbitrum_bridge_count(user) -> int:
+    return FundsOperationRequest.objects.filter(
+        wallet__user=user,
+        kind=FundsOperationRequest.Kind.WITHDRAW,
+        route=FundsOperationRequest.Route.USDC_ARBITRUM,
+        withdrawal_bridge_submitted_at__isnull=False,
+        executed_at__isnull=True,
+        rejected_at__isnull=True,
+    ).count()
+
+
+@login_required
+@require_POST
+def funds_bridge_poll(request: HttpRequest) -> HttpResponse:
+    """
+    Лёгкая финализация вывода USDC→Arbitrum через Arbiscan (вызывается JS раз в минуту).
+    Не использует тяжёлый eth_getLogs по RPC.
+    """
+    if not _is_trader(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    total = 0
+    for w in TraderWallet.objects.filter(user=request.user).order_by("pk"):
+        try:
+            total += try_finalize_usdc_withdrawals_for_wallet_arbiscan(
+                w, max_http_calls=15
+            )
+        except Exception as e:
+            logger.warning("funds_bridge_poll: %s", e)
+
+    n = _pending_usdc_arbitrum_bridge_count(request.user)
+    return JsonResponse(
+        {
+            "ok": True,
+            "finalized_count": total,
+            "pending_bridge_count": n,
+        }
+    )
 
 
 def _spot_transfer_wallet_choices(

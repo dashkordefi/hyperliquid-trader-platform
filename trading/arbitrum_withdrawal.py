@@ -9,8 +9,11 @@ import logging
 from decimal import Decimal, ROUND_DOWN
 from typing import Any, Optional
 
+import requests
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
+from hexbytes import HexBytes
 from web3 import Web3
 
 from .models import FundsOperationRequest, TraderWallet
@@ -199,6 +202,273 @@ def _find_finalized_log_for_op(
     return found
 
 
+def _finalize_op_from_log(op: FundsOperationRequest, log: dict[str, Any]) -> bool:
+    """Проставить executed_at и tx hash по найденному логу (RPC или Arbiscan)."""
+    txh = log.get("transactionHash")
+    if hasattr(txh, "hex"):
+        tx_hex = txh.hex()
+    else:
+        tx_hex = Web3.to_hex(txh)
+
+    with transaction.atomic():
+        locked = FundsOperationRequest.objects.select_for_update().get(pk=op.pk)
+        if locked.executed_at or locked.rejected_at:
+            return False
+        locked.executed_at = timezone.now()
+        locked.blockchain_tx_hash = tx_hex[:80]
+        locked.save(update_fields=["executed_at", "blockchain_tx_hash"])
+    logger.info(
+        "USDC withdraw op=%s finalized on Arbitrum tx=%s amount=%s",
+        op.pk,
+        tx_hex,
+        op.amount,
+    )
+    return True
+
+
+_TOPIC0_FINALIZED_HEX: Optional[str] = None
+
+
+def _topic0_finalized_hex() -> str:
+    global _TOPIC0_FINALIZED_HEX
+    if _TOPIC0_FINALIZED_HEX is None:
+        w3 = Web3()
+        h = w3.keccak(text="FinalizedWithdrawal(address,address,uint64,uint64,bytes32)")
+        _TOPIC0_FINALIZED_HEX = Web3.to_hex(h)
+    return _TOPIC0_FINALIZED_HEX
+
+
+def _wallet_topic_padded(wallet_lower: str) -> str:
+    return "0x" + wallet_lower[2:].rjust(64, "0")
+
+
+def _arbiscan_base_url(testnet: bool) -> str:
+    return (
+        "https://api-sepolia.arbiscan.io/api"
+        if testnet
+        else "https://api.arbiscan.io/api"
+    )
+
+
+def _arbiscan_api_key(testnet: bool) -> str:
+    from django.conf import settings
+
+    if testnet:
+        return (
+            getattr(settings, "ARBITRUM_SEPOLIA_ARBISCAN_API_KEY", "")
+            or ""
+        )
+    return getattr(settings, "ARBITRUM_ARBISCAN_API_KEY", "") or ""
+
+
+def _arbiscan_request_json(
+    testnet: bool, params: dict[str, Any], timeout: float = 12.0
+) -> Optional[dict[str, Any]]:
+    key = _arbiscan_api_key(testnet)
+    if not key:
+        return None
+    base = _arbiscan_base_url(testnet)
+    q = {"apikey": key, **params}
+    try:
+        r = requests.get(base, params=q, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        logger.warning("Arbiscan request %s: %s", params.get("action"), e)
+        return None
+
+
+def _arbiscan_latest_block(testnet: bool) -> Optional[int]:
+    j = _arbiscan_request_json(
+        testnet, {"module": "proxy", "action": "eth_blockNumber"}
+    )
+    if not j:
+        return None
+    res = j.get("result")
+    if isinstance(res, str) and res.startswith("0x"):
+        try:
+            return int(res, 16)
+        except ValueError:
+            return None
+    return None
+
+
+def _arbiscan_get_logs_chunk(
+    testnet: bool,
+    bridge: str,
+    topic0: str,
+    topic1: str,
+    from_block: int,
+    to_block: int,
+) -> list[dict[str, Any]]:
+    """Один getLogs; Arbiscan — обычно не больше 1000 блоков на запрос."""
+    j = _arbiscan_request_json(
+        testnet,
+        {
+            "module": "logs",
+            "action": "getLogs",
+            "fromBlock": str(from_block),
+            "toBlock": str(to_block),
+            "address": Web3.to_checksum_address(bridge),
+            "topic0": topic0,
+            "topic1": topic1,
+            "topic0_1_opr": "and",
+        },
+    )
+    if not j:
+        return []
+    res = j.get("result")
+    if isinstance(res, list):
+        return res
+    if isinstance(res, str) and res:
+        logger.warning("Arbiscan getLogs: %s", res[:200])
+    return []
+
+
+def _normalize_arbiscan_log(entry: dict[str, Any]) -> dict[str, Any]:
+    """Привести ответ Arbiscan к виду, который process_log принимает."""
+
+    def _topics() -> list:
+        out = []
+        for t in entry.get("topics") or []:
+            ts = t if isinstance(t, str) else str(t)
+            if not ts.startswith("0x"):
+                ts = "0x" + ts
+            out.append(HexBytes(ts))
+        return out
+
+    bn = entry.get("blockNumber")
+    if isinstance(bn, str):
+        block_number = int(bn, 16) if bn.startswith("0x") else int(bn)
+    else:
+        block_number = int(bn)
+
+    txh = entry.get("transactionHash", "0x")
+    if isinstance(txh, str) and not txh.startswith("0x"):
+        txh = "0x" + txh
+
+    li = entry.get("logIndex", "0x0")
+    if isinstance(li, str):
+        log_index = int(li, 16) if li.startswith("0x") else int(li)
+    else:
+        log_index = int(li)
+
+    data = entry.get("data") or "0x"
+    if isinstance(data, str) and not data.startswith("0x"):
+        data = "0x" + data
+
+    return {
+        "address": Web3.to_checksum_address(entry["address"]),
+        "topics": _topics(),
+        "data": data,
+        "blockNumber": block_number,
+        "transactionHash": HexBytes(txh),
+        "logIndex": log_index,
+    }
+
+
+def _estimate_fb_from_submit(op: FundsOperationRequest, latest: int) -> int:
+    ts = op.withdrawal_bridge_submitted_at
+    if not ts:
+        return max(1, latest - 50000)
+    secs = max(0, (timezone.now() - ts).total_seconds())
+    # ~4 блока/с на Arbitrum L2 (порядок величины)
+    return max(1, latest - int(secs * 4 + 8000))
+
+
+def try_finalize_usdc_withdrawals_for_wallet_arbiscan(
+    wallet: TraderWallet,
+    *,
+    max_http_calls: int = 15,
+) -> int:
+    """
+    Финализация через Arbiscan API (HTTP), без eth_getLogs по RPC.
+    До max_http_calls запросов за один вызов (защита от таймаута воркера).
+    Курсор в cache (ключ arbiscan_wc:...) продолжает скан при следующем вызове.
+    """
+    pending = list(
+        FundsOperationRequest.objects.filter(
+            wallet=wallet,
+            kind=FundsOperationRequest.Kind.WITHDRAW,
+            route=FundsOperationRequest.Route.USDC_ARBITRUM,
+            withdrawal_bridge_submitted_at__isnull=False,
+            executed_at__isnull=True,
+            rejected_at__isnull=True,
+        ).order_by("created_at")
+    )
+    if not pending:
+        return 0
+
+    closed = 0
+    wl = wallet.address.lower()
+    topic0 = _topic0_finalized_hex()
+    topic1 = _wallet_topic_padded(wl)
+    dummy_w3 = Web3()
+
+    for testnet in (False, True):
+        group = [p for p in pending if bool(p.hl_testnet) == testnet]
+        if not group:
+            continue
+        if not _arbiscan_api_key(testnet):
+            logger.warning(
+                "Arbiscan API key не задан (testnet=%s) — финализация USDC→Arbitrum пропущена",
+                testnet,
+            )
+            continue
+
+        latest = _arbiscan_latest_block(testnet)
+        if latest is None:
+            continue
+
+        bridge = _bridge_address(testnet)
+        c = dummy_w3.eth.contract(
+            address=Web3.to_checksum_address(bridge),
+            abi=[_FINALIZED_EVENT_ABI],
+        )
+
+        cursor_key = f"arbiscan_wc:{wallet.pk}:{int(testnet)}"
+        fb = cache.get(cursor_key)
+        if fb is None:
+            fb = min(_estimate_fb_from_submit(op, latest) for op in group)
+        fb = max(1, min(int(fb), latest))
+
+        http_used = 0
+        b = fb
+        while b <= latest and http_used < max_http_calls:
+            ce = min(b + 999, latest)
+            raw_logs = _arbiscan_get_logs_chunk(testnet, bridge, topic0, topic1, b, ce)
+            http_used += 1
+            for raw in raw_logs:
+                try:
+                    log = _normalize_arbiscan_log(raw)
+                except Exception as e:
+                    logger.debug("arbiscan log normalize: %s", e)
+                    continue
+                for op in list(group):
+                    exp = _amount_to_bridge_usd_int(op.amount)
+                    if not _decode_finalized_and_match(c, log, wl, exp):
+                        continue
+                    if _finalize_op_from_log(op, log):
+                        closed += 1
+                        group.remove(op)
+                    else:
+                        op.refresh_from_db()
+                        if op.executed_at or op.rejected_at:
+                            group.remove(op)
+            if not group:
+                cache.delete(cursor_key)
+                break
+            b = ce + 1
+
+        if group:
+            if b <= latest:
+                cache.set(cursor_key, b, timeout=86400 * 7)
+            else:
+                cache.set(cursor_key, max(1, latest - 12000), timeout=86400 * 7)
+
+    return closed
+
+
 def try_finalize_usdc_withdrawals_for_wallet(wallet: TraderWallet) -> int:
     """
     Для заявок USDC→Arbitrum с выставленным withdrawal_bridge_submitted_at и без executed_at
@@ -242,24 +512,6 @@ def try_finalize_usdc_withdrawals_for_wallet(wallet: TraderWallet) -> int:
             continue
         if not log:
             continue
-        txh = log.get("transactionHash")
-        if hasattr(txh, "hex"):
-            tx_hex = txh.hex()
-        else:
-            tx_hex = Web3.to_hex(txh)
-
-        with transaction.atomic():
-            locked = FundsOperationRequest.objects.select_for_update().get(pk=op.pk)
-            if locked.executed_at or locked.rejected_at:
-                continue
-            locked.executed_at = timezone.now()
-            locked.blockchain_tx_hash = tx_hex[:80]
-            locked.save(update_fields=["executed_at", "blockchain_tx_hash"])
-        closed += 1
-        logger.info(
-            "USDC withdraw op=%s finalized on Arbitrum tx=%s amount=%s",
-            op.pk,
-            tx_hex,
-            op.amount,
-        )
+        if _finalize_op_from_log(op, log):
+            closed += 1
     return closed

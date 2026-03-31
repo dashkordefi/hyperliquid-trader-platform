@@ -1,17 +1,22 @@
 """
-Закрывает заявки USDC→Arbitrum по событию FinalizedWithdrawal на Bridge2 (eth_getLogs).
+Закрывает заявки USDC→Arbitrum по событию FinalizedWithdrawal (Bridge2).
 
-Не вызывать из HTTP-запроса: скан может долго идти по RPC. Назначение: cron, например на Render:
+По умолчанию — Arbiscan API (лёгкие HTTP-запросы). Нужен ARBITRUM_ARBISCAN_API_KEY в env.
+
+Опция --rpc: дополнительно попробовать тяжёлый eth_getLogs по RPC (для отладки, не для веб-воркера).
+
+Пример cron на Render (каждые 5 минут):
   python manage.py finalize_arbitrum_withdrawals
-
-Пример cron (каждые 5 минут): см. документацию Render Scheduled Jobs.
 """
 
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
 
-from trading.arbitrum_withdrawal import try_finalize_usdc_withdrawals_for_wallet
+from trading.arbitrum_withdrawal import (
+    try_finalize_usdc_withdrawals_for_wallet,
+    try_finalize_usdc_withdrawals_for_wallet_arbiscan,
+)
 from trading.models import FundsOperationRequest, TraderWallet
 
 
@@ -20,7 +25,15 @@ class Command(BaseCommand):
         "Проверить Bridge2 на Arbitrum и проставить executed_at для завершённых выводов USDC."
     )
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--rpc",
+            action="store_true",
+            help="После Arbiscan попробовать тяжёлый RPC-скан (eth_getLogs).",
+        )
+
     def handle(self, *args, **options):
+        use_rpc = bool(options.get("rpc"))
         wallet_ids = list(
             FundsOperationRequest.objects.filter(
                 kind=FundsOperationRequest.Kind.WITHDRAW,
@@ -42,7 +55,11 @@ class Command(BaseCommand):
             if not w:
                 continue
             try:
-                n = try_finalize_usdc_withdrawals_for_wallet(w)
+                n = try_finalize_usdc_withdrawals_for_wallet_arbiscan(
+                    w, max_http_calls=40
+                )
+                if use_rpc and n == 0:
+                    n = try_finalize_usdc_withdrawals_for_wallet(w)
             except Exception as e:
                 self.stderr.write(self.style.ERROR(f"wallet_id={wid}: {e}"))
                 continue
@@ -55,5 +72,6 @@ class Command(BaseCommand):
                 )
         if total == 0:
             self.stdout.write(
-                "Заявки в ожидании есть, по цепочке пока не найдено событий (или RPC недоступен)."
+                "Заявки в ожидании есть, событий пока не найдено "
+                "(проверьте ARBITRUM_ARBISCAN_API_KEY и лимиты Arbiscan)."
             )

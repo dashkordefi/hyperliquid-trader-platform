@@ -305,6 +305,14 @@ ARBITRUM_SEPOLIA_RPC_URL = os.environ.get(
     "https://sepolia-rollup.arbitrum.io/rpc",
 )
 
+# Arbiscan API (getLogs) — лёгкая финализация USDC→Arbitrum без тяжёлого RPC в HTTP-запросе.
+# Ключ: https://arbiscan.io/apis (бесплатный tier).
+ARBITRUM_ARBISCAN_API_KEY = os.environ.get("ARBITRUM_ARBISCAN_API_KEY", "")
+ARBITRUM_SEPOLIA_ARBISCAN_API_KEY = os.environ.get(
+    "ARBITRUM_SEPOLIA_ARBISCAN_API_KEY",
+    ARBITRUM_ARBISCAN_API_KEY,
+)
+
 # Депозит ETH через Unit (Ethereum L1): spotSend / deposit_eth в hyperliquid_account.
 ETHEREUM_MAINNET_RPC_URL = os.environ.get(
     "ETHEREUM_MAINNET_RPC_URL",
