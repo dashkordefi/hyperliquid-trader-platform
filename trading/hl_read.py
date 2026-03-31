@@ -228,7 +228,11 @@ def _perp_oracle_reference_px(client: HyperliquidInfoClient, instrument: str) ->
 
 
 def _spot_mark_reference_px(client: HyperliquidInfoClient, instrument: str) -> Any:
-    """markPx из spotMetaAndAssetCtxs как reference (у спота в доке нет oraclePx)."""
+    """markPx из spotMetaAndAssetCtxs как reference (у спота в доке нет oraclePx).
+
+    Важно: len(universe) != len(assetCtxs) на mainnet; строка в ctxs — по полю universe[i].index,
+    а не по позиции i (иначе markPx оказывается от другого @N — типичный баг: mid ~2000, mark ~0.0002).
+    """
     try:
         resp = client.spot_meta_and_asset_ctxs()
     except HyperliquidInfoError:
@@ -239,16 +243,21 @@ def _spot_mark_reference_px(client: HyperliquidInfoClient, instrument: str) -> A
     if not isinstance(meta, dict) or not isinstance(ctxs, list):
         return None
     universe = meta.get("universe") or []
-    idx: Optional[int] = None
+    ctx_row: Optional[int] = None
     for i, u in enumerate(universe):
         if not isinstance(u, dict):
             continue
-        if str(u.get("name") or "") == instrument:
-            idx = i
-            break
-    if idx is None or idx >= len(ctxs):
+        if str(u.get("name") or "") != instrument:
+            continue
+        row_idx = u.get("index")
+        if isinstance(row_idx, int) and 0 <= row_idx < len(ctxs):
+            ctx_row = row_idx
+        elif i < len(ctxs):
+            ctx_row = i
+        break
+    if ctx_row is None:
         return None
-    actx = ctxs[idx]
+    actx = ctxs[ctx_row]
     if not isinstance(actx, dict):
         return None
     return actx.get("markPx")

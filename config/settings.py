@@ -56,8 +56,8 @@ if _ext and _ext not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_ext)
 if not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
-# Локально часто в env только «localhost» → 127.0.0.1 даёт 400 DisallowedHost.
-if DEBUG:
+# Локально (не Render): всегда допускаем эти хосты — иначе при DEBUG=False в .env будет 400/403.
+if not _render:
     for _h in ("127.0.0.1", "localhost", "[::1]"):
         if _h not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(_h)
@@ -109,8 +109,8 @@ for _dev in (
 ):
     _add_csrf_origin(CSRF_TRUSTED_ORIGINS, _dev)
 
-# Локально: любой порт runserver 8000–8020 (частая причина 403 CSRF).
-if DEBUG:
+# Локально (не Render): порты runserver 8000–8020 — иначе при DEBUG=False в .env будет 403 CSRF.
+if not _render:
     for _port in range(8000, 8021):
         for _host in ("127.0.0.1", "localhost", "[::1]"):
             _add_csrf_origin(CSRF_TRUSTED_ORIGINS, f"http://{_host}:{_port}")
@@ -129,13 +129,11 @@ if _render:
 if os.environ.get("USE_X_FORWARDED_HOST", "").lower() in ("true", "1", "yes"):
     USE_X_FORWARDED_HOST = True
 
-# Secure-cookies только за реальным HTTPS (Render / свой прокси). Если включить при DEBUG=False
-# на http://localhost, браузер не шлёт cookie → «не открывается», 403 CSRF, нет сессии.
+# Secure-cookies за HTTPS (Render / FORCE_SECURE_COOKIES). Финальное значение — после DATABASES:
+# при sqlite локально не ставим Secure, даже если RENDER=true в .env скопирован с продакшена.
 _use_secure_cookies = _render or os.environ.get(
     "FORCE_SECURE_COOKIES", ""
 ).lower() in ("true", "1", "yes")
-CSRF_COOKIE_SECURE = _use_secure_cookies
-SESSION_COOKIE_SECURE = _use_secure_cookies
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
@@ -205,6 +203,25 @@ if os.environ.get("DATABASE_URL"):
         ssl_require=os.environ.get("DATABASE_SSL_REQUIRE", "true").lower() == "true",
     )
 
+_engine = DATABASES["default"].get("ENGINE", "")
+_sqlite = "sqlite" in _engine.lower()
+_override_insecure = os.environ.get("USE_INSECURE_COOKIES", "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+# Postgres на localhost в .env + случайный RENDER=true из продакшена — иначе Secure cookie не уходит по HTTP.
+_dburl = os.environ.get("DATABASE_URL", "")
+_local_db_url = bool(
+    _dburl
+    and any(x in _dburl.lower() for x in ("localhost", "127.0.0.1", "::1"))
+)
+if not _render or _sqlite or _override_insecure or _local_db_url:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+else:
+    CSRF_COOKIE_SECURE = _use_secure_cookies
+    SESSION_COOKIE_SECURE = _use_secure_cookies
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

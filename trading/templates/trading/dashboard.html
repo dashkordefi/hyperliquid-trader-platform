@@ -60,6 +60,28 @@
         padding: 1rem 1.1rem;
         box-shadow: 0 8px 24px rgba(0,0,0,0.35);
     }
+    .trade-instrument-bar {
+        margin-bottom: 1.25rem;
+        padding: 1rem 1.15rem;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: linear-gradient(180deg, #1c2128 0%, #161b22 100%);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+    }
+    .trade-instrument-bar-inner {
+        display: grid;
+        grid-template-columns: minmax(220px, 380px) minmax(0, 1fr);
+        gap: 1.25rem 1.5rem;
+        align-items: start;
+    }
+    @media (max-width: 960px) {
+        .trade-instrument-bar-inner {
+            grid-template-columns: 1fr;
+        }
+    }
+    .trade-instrument-form .hl-form label { margin-top: 0.5rem; }
+    .trade-instrument-form .hl-form label:first-of-type { margin-top: 0; }
+    .trade-instrument-prices { min-width: 0; }
     .trade-pair-line {
         font-size: 1.05rem;
         font-weight: 600;
@@ -67,6 +89,9 @@
         padding-bottom: 0.5rem;
         border-bottom: 1px solid var(--border);
         font-variant-numeric: tabular-nums;
+    }
+    .trade-instrument-prices .trade-mid-strip {
+        margin-bottom: 0;
     }
     .trade-mid-strip {
         margin: 0 0 1rem;
@@ -77,12 +102,12 @@
     }
     .trade-mid-price-row {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem 1rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem 1.25rem;
         align-items: start;
     }
-    @media (max-width: 420px) {
-        .trade-mid-price-row { grid-template-columns: 1fr; }
+    .trade-mid-price-row > div {
+        min-width: 0;
     }
     .trade-mid-strip .mid-label {
         display: block;
@@ -98,13 +123,6 @@
         font-variant-numeric: tabular-nums;
         letter-spacing: -0.02em;
     }
-    .trade-mid-strip .mid-coin {
-        display: block;
-        font-size: 0.72rem;
-        color: var(--muted);
-        margin-top: 0.35rem;
-        word-break: break-all;
-    }
     .trade-sidebar .hl-form label { margin-top: 0.5rem; }
     .trade-sidebar .hl-form label:first-of-type { margin-top: 0; }
     .trade-sidebar input, .trade-sidebar select {
@@ -114,6 +132,11 @@
         margin-top: 1rem;
         padding-top: 1rem;
         border-top: 1px solid var(--border);
+    }
+    .trade-sidebar-order-only .trade-order-block {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
     }
     .trade-order-block h3 {
         font-size: 0.85rem;
@@ -259,6 +282,50 @@
         <a href="{% url 'deposit_request' %}" class="btn">Депозит</a>
         <a href="{% url 'withdraw_request' %}" class="btn secondary">Вывод</a>
         <a href="{% url 'wallet_select' %}" class="btn secondary">Кошельки</a>
+    </div>
+</div>
+
+<div class="trade-instrument-bar" aria-label="Рынок и цены">
+    <div class="trade-instrument-bar-inner">
+        <form method="get" class="hl-form trade-instrument-form" action="">
+            <label for="market">Рынок</label>
+            <select name="market" id="market">
+                <option value="perp" {% if market_type == "perp" %}selected{% endif %}>Perpetuals</option>
+                <option value="spot" {% if market_type == "spot" %}selected{% endif %}>Spot</option>
+            </select>
+            <label for="symbol">Пара / монета</label>
+            <input name="symbol" id="symbol" value="{{ symbol }}" placeholder="ETH, BTC, …" autocomplete="off" list="perp-coins">
+            <datalist id="perp-coins">
+                {% for s in perp_symbols %}<option value="{{ s }}">{% endfor %}
+            </datalist>
+            <datalist id="spot-coins">
+                {% for s in spot_symbols %}<option value="{{ s }}">{% endfor %}
+            </datalist>
+            <p class="trade-apply-row" style="margin-top:0.75rem;margin-bottom:0"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
+        </form>
+        <div class="trade-instrument-prices">
+            <p class="trade-pair-line" id="trade-pair-display">{{ market_type|upper }} · {{ symbol }}</p>
+            <div class="trade-mid-strip" aria-live="polite">
+                <div class="trade-mid-price-row">
+                    <div>
+                        {% if market_type == "perp" %}
+                        <span class="mid-label">Mark (mid), USDC</span>
+                        {% else %}
+                        <span class="mid-label">Mid, USDC</span>
+                        {% endif %}
+                        <span class="mid-value">{% if data.mid_price is not None %}{{ data.mid_price }}{% else %}—{% endif %}</span>
+                    </div>
+                    <div>
+                        {% if market_type == "perp" %}
+                        <span class="mid-label">Reference (oracle), USDC</span>
+                        {% else %}
+                        <span class="mid-label">Reference (mark), USDC</span>
+                        {% endif %}
+                        <span class="mid-value">{% if data.reference_price is not None %}{{ data.reference_price }}{% else %}—{% endif %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -429,48 +496,7 @@
         </div>
     </div>
 
-    <aside class="trade-sidebar" aria-label="Панель торговли">
-        <form method="get" class="hl-form" action="">
-            <label for="market">Рынок</label>
-            <select name="market" id="market">
-                <option value="perp" {% if market_type == "perp" %}selected{% endif %}>Perpetuals</option>
-                <option value="spot" {% if market_type == "spot" %}selected{% endif %}>Spot</option>
-            </select>
-            <label for="symbol">Пара / монета</label>
-            <input name="symbol" id="symbol" value="{{ symbol }}" placeholder="ETH, BTC, …" autocomplete="off" list="perp-coins">
-            <datalist id="perp-coins">
-                {% for s in perp_symbols %}<option value="{{ s }}">{% endfor %}
-            </datalist>
-            <datalist id="spot-coins">
-                {% for s in spot_symbols %}<option value="{{ s }}">{% endfor %}
-            </datalist>
-            <p style="margin-top:0.75rem"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
-        </form>
-
-        <p class="trade-pair-line" id="trade-pair-display">{{ market_type|upper }} · {{ symbol }}</p>
-
-        <div class="trade-mid-strip" aria-live="polite">
-            <div class="trade-mid-price-row">
-                <div>
-                    {% if market_type == "perp" %}
-                    <span class="mid-label">Mark (mid), USDC</span>
-                    {% else %}
-                    <span class="mid-label">Mid, USDC</span>
-                    {% endif %}
-                    <span class="mid-value">{% if data.mid_price is not None %}{{ data.mid_price }}{% else %}—{% endif %}</span>
-                </div>
-                <div>
-                    {% if market_type == "perp" %}
-                    <span class="mid-label">Reference (oracle), USDC</span>
-                    {% else %}
-                    <span class="mid-label">Reference (mark), USDC</span>
-                    {% endif %}
-                    <span class="mid-value">{% if data.reference_price is not None %}{{ data.reference_price }}{% else %}—{% endif %}</span>
-                </div>
-            </div>
-            <span class="mid-coin">{% if market_type == "spot" %}{{ data.spot_display_token }}{% else %}{{ data.instrument_coin }}{% endif %}</span>
-        </div>
-
+    <aside class="trade-sidebar trade-sidebar-order-only" aria-label="Панель ордера">
         <div class="trade-order-block">
             <h3>Ордер</h3>
             {% if not hl_trading_key_configured %}
