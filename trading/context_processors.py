@@ -6,43 +6,39 @@ from .models import FundsOperationRequest, TraderWallet
 
 logger = logging.getLogger(__name__)
 
-SESSION_ACTIVE_WALLET = "active_trader_wallet_id"
-
 
 def funds_operation_feed(request):
     """
-    Лента заявок на депозит/вывод для активного кошелька трейдера (шапка интерфейса торговли).
+    Баннер при выводе USDC→Arbitrum до появления tx в сети. FinalizedWithdrawal — по каждому кошельку.
     """
     out = {
-        "funds_operation_feed": None,
-        "funds_operation_feed_wallet": None,
+        "funds_bridge_banner_ops": None,
     }
     if not request.user.is_authenticated:
         return out
     g = set(request.user.groups.values_list("name", flat=True))
     if not (request.user.is_superuser or "traders" in g):
         return out
-    wid = request.session.get(SESSION_ACTIVE_WALLET)
-    if not wid:
+    wallets = list(TraderWallet.objects.filter(user=request.user).order_by("label"))
+    if not wallets:
         return out
-    wallet = TraderWallet.objects.filter(pk=wid, user=request.user).first()
-    if not wallet:
-        return out
-    out["funds_operation_feed_wallet"] = wallet.label
-    # USDC→Arbitrum: закрываем заявку по событию FinalizedWithdrawal на Bridge2.
-    try:
-        try_finalize_usdc_withdrawals_for_wallet(wallet)
-    except Exception as e:
-        logger.warning("Проверка FinalizedWithdrawal на Arbitrum: %s", e)
-    # Только «открытые» заявки: после исполнения (HL) или отклонения строка из ленты убирается.
-    out["funds_operation_feed"] = list(
+    for w in wallets:
+        try:
+            try_finalize_usdc_withdrawals_for_wallet(w)
+        except Exception as e:
+            logger.warning("Проверка FinalizedWithdrawal на Arbitrum: %s", e)
+    # Баннер: USDC уже ушёл с HL, ожидаем FinalizedWithdrawal на Bridge2 (пропадает после tx в сети).
+    out["funds_bridge_banner_ops"] = list(
         FundsOperationRequest.objects.filter(
-            wallet=wallet,
+            wallet__user=request.user,
+            kind=FundsOperationRequest.Kind.WITHDRAW,
+            route=FundsOperationRequest.Route.USDC_ARBITRUM,
+            withdrawal_bridge_submitted_at__isnull=False,
             executed_at__isnull=True,
             rejected_at__isnull=True,
         )
-        .select_related("compliance_approved_by", "middleoffice_approved_by")
-        .order_by("-created_at")[:20]
+        .select_related("wallet")
+        .order_by("-withdrawal_bridge_submitted_at")
     )
     return out
 

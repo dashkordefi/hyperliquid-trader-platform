@@ -14,6 +14,7 @@ urlpatterns = [
     ),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("trades/", views.trade_history, name="trade_history"),
+    path("funds/history/", views.funds_history, name="funds_history"),
     path(
         "dashboard/usdc-transfer/",
         views.usdc_class_transfer,

@@ -913,15 +913,23 @@ def perp_positions_like_notebook(
         if mark is None:
             mark = flat.get("markPx")
         szi_raw = flat.get("szi")
+        abs_size = None
+        position_side: Optional[str] = None
         try:
-            abs_size = abs(float(str(szi_raw).replace(",", "")))
+            szi_f = float(str(szi_raw).replace(",", ""))
+            abs_size = abs(szi_f)
+            if szi_f > 0:
+                position_side = "long"
+            elif szi_f < 0:
+                position_side = "short"
         except (TypeError, ValueError):
-            abs_size = None
+            pass
         rows.append(
             {
                 "coin": coin,
                 "size": flat.get("szi"),
                 "abs_size": abs_size,
+                "position_side": position_side,
                 "position_value": flat.get("positionValue"),
                 "entry_price": flat.get("entryPx"),
                 "mark_price": mark,

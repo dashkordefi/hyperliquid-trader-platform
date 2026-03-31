@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 
@@ -36,8 +37,19 @@ ALLOWED_HOSTS = [
     for host in os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
     if host.strip()
 ]
-# На Render удобно задать в Environment: RENDER_EXTERNAL_HOSTNAME=xxx.onrender.com
+_render = os.environ.get("RENDER", "").lower() in ("true", "1", "yes")
+# На Render: RENDER_EXTERNAL_HOSTNAME=xxx.onrender.com; если пусто — пробуем RENDER_SERVICE_URL (https://…onrender.com).
 _ext = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if not _ext and _render:
+    for _url in (
+        os.environ.get("RENDER_SERVICE_URL", "").strip(),
+        os.environ.get("RENDER_EXTERNAL_URL", "").strip(),
+    ):
+        if _url:
+            _netloc = urlparse(_url).netloc
+            if _netloc:
+                _ext = _netloc
+                break
 if _ext and _ext not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_ext)
 CSRF_TRUSTED_ORIGINS = [
@@ -45,6 +57,42 @@ CSRF_TRUSTED_ORIGINS = [
     for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
 ]
+# Django 4+: заголовок Origin при POST должен совпадать с одним из доверенных origin.
+if _ext:
+    _https_origin = f"https://{_ext}"
+    if _https_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_https_origin)
+for _dev in (
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8001",
+    "http://localhost:8001",
+    "http://127.0.0.1:8080",
+    "http://localhost:8080",
+    "http://127.0.0.1:5000",
+    "http://localhost:5000",
+    "http://[::1]:8000",
+    "http://localhost:3000",
+    "https://127.0.0.1:8000",
+    "https://localhost:8000",
+):
+    if _dev not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_dev)
+
+# Каждый хост из ALLOWED_HOSTS — с http и https (без порта; для нестандартного порта задайте CSRF_TRUSTED_ORIGINS).
+for _h in list(ALLOWED_HOSTS):
+    if not _h or _h == "*" or _h.startswith("."):
+        continue
+    for _scheme in ("http://", "https://"):
+        _o = f"{_scheme}{_h}"
+        if _o not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(_o)
+
+if _render:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Включайте только если за прокси ломается Host; иначе X-Forwarded-Host иногда даёт несовпадение с Origin → 403 CSRF.
+if os.environ.get("USE_X_FORWARDED_HOST", "").lower() in ("true", "1", "yes"):
+    USE_X_FORWARDED_HOST = True
 
 
 # Application definition

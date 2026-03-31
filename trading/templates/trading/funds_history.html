@@ -1,0 +1,112 @@
+{% extends "trading/base.html" %}
+{% load trading_extras %}
+{% block title %}История депозитов и выводов{% endblock %}
+{% block content %}
+<h1>История депозитов и выводов</h1>
+<p class="muted">
+    Все кошельки вашего аккаунта.
+    · <a href="{% url 'dashboard' %}">← Торговля</a>
+</p>
+
+{% if pending_operations %}
+<h2 class="muted" style="font-size:1rem;margin:1.25rem 0 0.5rem">В работе</h2>
+<div class="card" style="overflow-x: auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>Создана (UTC)</th>
+                <th>Кошелёк</th>
+                <th>Тип</th>
+                <th>Сумма</th>
+                <th>Маршрут</th>
+                <th>Статус</th>
+                <th>Tx</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for op in pending_operations %}
+            <tr>
+                <td>{{ op.created_at|date:"d.m.Y H:i" }}</td>
+                <td>{{ op.wallet.label }}</td>
+                <td>{{ op.get_kind_display }}</td>
+                <td>{{ op.amount }}</td>
+                <td>{{ op.get_route_display }}</td>
+                <td><span class="funds-feed-status status-{{ op.workflow_status_kind }}">{{ op.workflow_status_label }}</span></td>
+                <td>
+                    {% if op.blockchain_tx_hash %}
+                        {% with txurl=op|funds_tx_explorer_url:hl_network_testnet %}
+                            {% if txurl %}
+                                <a href="{{ txurl }}" target="_blank" rel="noopener noreferrer" title="{{ op|funds_tx_hash_display }}">{{ op|funds_tx_explorer_label:hl_network_testnet }}</a>
+                            {% else %}
+                                <span class="muted" title="{{ op|funds_tx_hash_display }}">—</span>
+                            {% endif %}
+                        {% endwith %}
+                    {% else %}
+                        <span class="muted">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="post" action="{% url 'funds_operation_delete' op.pk %}" style="margin:0"
+                        onsubmit="return confirm('Удалить эту заявку из списка? Для уже отправленного в сеть вывода средства всё равно придут на кошелёк.');">
+                        {% csrf_token %}
+                        <button type="submit" class="danger" style="font-size:0.72rem;padding:0.2rem 0.45rem">Удалить</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<h2 class="muted" style="font-size:1rem;margin:1.5rem 0 0.5rem">Завершённые</h2>
+<div class="card" style="overflow-x: auto;">
+    {% if completed_operations %}
+    <table>
+        <thead>
+            <tr>
+                <th>Создана (UTC)</th>
+                <th>Кошелёк</th>
+                <th>Тип</th>
+                <th>Сумма</th>
+                <th>Маршрут</th>
+                <th>Статус</th>
+                <th>Завершено</th>
+                <th>Tx</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for op in completed_operations %}
+            <tr>
+                <td>{{ op.created_at|date:"d.m.Y H:i" }}</td>
+                <td>{{ op.wallet.label }}</td>
+                <td>{{ op.get_kind_display }}</td>
+                <td>{{ op.amount }}</td>
+                <td>{{ op.get_route_display }}</td>
+                <td><span class="funds-feed-status status-{{ op.workflow_status_kind }}">{{ op.workflow_status_label }}</span></td>
+                <td>
+                    {% if op.executed_at %}{{ op.executed_at|date:"d.m.Y H:i" }}{% elif op.rejected_at %}{{ op.rejected_at|date:"d.m.Y H:i" }}{% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if op.blockchain_tx_hash %}
+                        {% with txurl=op|funds_tx_explorer_url:hl_network_testnet %}
+                            {% if txurl %}
+                                <a href="{{ txurl }}" target="_blank" rel="noopener noreferrer" title="{{ op|funds_tx_hash_display }}">{{ op|funds_tx_explorer_label:hl_network_testnet }}</a>
+                            {% else %}
+                                <span class="muted" title="{{ op|funds_tx_hash_display }}">{{ op|funds_tx_hash_display }}</span>
+                            {% endif %}
+                        {% endwith %}
+                    {% else %}
+                        <span class="muted">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Пока нет завершённых заявок.</p>
+    {% endif %}
+</div>
+{% endblock %}

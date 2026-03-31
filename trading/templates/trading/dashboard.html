@@ -60,14 +60,6 @@
         padding: 1rem 1.1rem;
         box-shadow: 0 8px 24px rgba(0,0,0,0.35);
     }
-    .trade-sidebar-title {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--muted);
-        margin: 0 0 0.35rem;
-        font-weight: 600;
-    }
     .trade-pair-line {
         font-size: 1.05rem;
         font-weight: 600;
@@ -161,6 +153,24 @@
     .trade-center tbody tr:hover {
         background: rgba(88, 166, 255, 0.06);
     }
+    table.perp-positions-table tbody tr.perp-pos-long td {
+        color: #3fb950;
+    }
+    table.perp-positions-table tbody tr.perp-pos-short td {
+        color: #f85149;
+    }
+    table.perp-positions-table tbody tr.perp-pos-long:hover {
+        background: rgba(63, 185, 80, 0.12);
+    }
+    table.perp-positions-table tbody tr.perp-pos-short:hover {
+        background: rgba(248, 81, 73, 0.12);
+    }
+    table.perp-positions-table tbody tr.perp-pos-long:hover td {
+        color: #3fb950;
+    }
+    table.perp-positions-table tbody tr.perp-pos-short:hover td {
+        color: #f85149;
+    }
     .trade-testnet-banner {
         margin: 0 0 1rem;
         padding: 0.55rem 0.9rem;
@@ -171,25 +181,6 @@
         color: var(--text);
     }
     .trade-testnet-banner code { font-size: 0.85em; }
-    .trade-usdc-panel {
-        margin: 0.75rem 0;
-        padding: 0.75rem 0.85rem;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: rgba(88, 166, 255, 0.06);
-    }
-    .trade-usdc-panel .trade-usdc-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 0.5rem;
-        font-size: 0.88rem;
-        margin-bottom: 0.35rem;
-    }
-    .trade-usdc-panel .trade-usdc-row:last-of-type { margin-bottom: 0; }
-    .trade-usdc-panel .trade-usdc-row strong {
-        font-variant-numeric: tabular-nums;
-    }
     dialog.trade-modal {
         border: 1px solid var(--border);
         background: var(--panel);
@@ -306,6 +297,7 @@
                             <th>Withdrawable</th>
                             <th>Счёт</th>
                             <th>На адрес HL</th>
+                            <th>Spot ↔ Perp</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -333,6 +325,23 @@
                                 <span class="muted">—</span>
                                 {% endif %}
                             </td>
+                            <td style="white-space:nowrap">
+                                {% if hl_trading_key_configured %}
+                                    {% if r.token|upper == "USDC" or r.coin|upper == "USDC" %}
+                                        {% if r.account == "Spot" %}
+                                            <button type="button" class="btn secondary usdc-class-transfer-open" data-direction="spot_to_perp" style="font-size:0.75rem;padding:0.25rem 0.5rem" title="USDC: spot → perp (маржа)">→ Perp</button>
+                                        {% elif r.account == "Perp" %}
+                                            <button type="button" class="btn secondary usdc-class-transfer-open" data-direction="perp_to_spot" style="font-size:0.75rem;padding:0.25rem 0.5rem" title="USDC: perp → spot">→ Spot</button>
+                                        {% else %}
+                                            <span class="muted">—</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="muted">—</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="muted" style="font-size:0.78rem">—</span>
+                                {% endif %}
+                            </td>
                         </tr>
                     {% endfor %}
                     </tbody>
@@ -347,7 +356,7 @@
             <h2>perpetual positions</h2>
             {% if data.perp_positions %}
                 <div style="overflow-x:auto">
-                <table>
+                <table class="perp-positions-table">
                     <thead>
                         <tr>
                             <th>Coin</th>
@@ -364,7 +373,7 @@
                     </thead>
                     <tbody>
                     {% for p in data.perp_positions %}
-                        <tr>
+                        <tr class="{% if p.position_side == 'long' %}perp-pos-long{% elif p.position_side == 'short' %}perp-pos-short{% endif %}">
                             <td>{{ p.coin }}</td>
                             <td>{{ p.size }}</td>
                             <td>{{ p.position_value }}</td>
@@ -474,23 +483,6 @@
                 </div>
             </div>
             <span class="mid-coin">{% if market_type == "spot" %}{{ data.spot_display_token }}{% else %}{{ data.instrument_coin }}{% endif %}</span>
-        </div>
-
-        <div class="trade-usdc-panel">
-            <div class="trade-sidebar-title">USDC</div>
-            <div class="trade-usdc-row">
-                <span class="muted">Perp</span>
-                <strong>{% if data.usdc_snapshot.perp_usdc is not None %}{{ data.usdc_snapshot.perp_usdc }}{% else %}—{% endif %}</strong>
-            </div>
-            <div class="trade-usdc-row">
-                <span class="muted">Spot</span>
-                <strong>{% if data.usdc_snapshot.spot_usdc is not None %}{{ data.usdc_snapshot.spot_usdc }}{% else %}—{% endif %}</strong>
-            </div>
-            {% if hl_trading_key_configured %}
-            <button type="button" class="btn secondary" style="width:100%;margin-top:0.5rem" id="usdc-transfer-open">Перевод Spot ↔ Perp</button>
-            {% else %}
-            <p class="muted-note" style="margin:0.5rem 0 0;font-size:0.78rem">Для перевода нужен приватный ключ кошелька.</p>
-            {% endif %}
         </div>
 
         <div class="trade-order-block">
@@ -654,7 +646,6 @@
 <script>
 (function () {
   var dlg = document.getElementById("usdc-transfer-dialog");
-  var openBtn = document.getElementById("usdc-transfer-open");
   var cancelBtn = document.getElementById("usdc-transfer-cancel");
   var usdcDir = document.getElementById("id_direction");
   var usdcMaxHint = document.getElementById("usdc-transfer-max-hint");
@@ -706,16 +697,23 @@
       usdcAmt.readOnly = false;
     }
   }
-  if (openBtn && dlg)
-    openBtn.addEventListener("click", function () {
-      if (usdcFull) usdcFull.checked = false;
-      if (usdcAmt) {
-        usdcAmt.value = "";
-        usdcAmt.readOnly = false;
-      }
-      dlg.showModal();
-      updateUsdcTransferMaxHint();
+  function openUsdcTransferDialog(prefDir) {
+    if (!dlg) return;
+    if (usdcDir && prefDir) usdcDir.value = prefDir;
+    if (usdcFull) usdcFull.checked = false;
+    if (usdcAmt) {
+      usdcAmt.value = "";
+      usdcAmt.readOnly = false;
+    }
+    dlg.showModal();
+    updateUsdcTransferMaxHint();
+    applyUsdcFullTransfer();
+  }
+  document.querySelectorAll(".usdc-class-transfer-open").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openUsdcTransferDialog(btn.getAttribute("data-direction") || "");
     });
+  });
   if (usdcDir && dlg)
     usdcDir.addEventListener("change", function () {
       updateUsdcTransferMaxHint();

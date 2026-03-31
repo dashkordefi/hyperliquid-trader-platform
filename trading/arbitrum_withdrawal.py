@@ -28,6 +28,7 @@ BRIDGE2_ARBITRUM_TESTNET = Web3.to_checksum_address(
 _FINALIZED_EVENT_ABI = {
     "type": "event",
     "name": "FinalizedWithdrawal",
+    "anonymous": False,
     "inputs": [
         {"name": "user", "type": "address", "indexed": True},
         {"name": "destination", "type": "address", "indexed": False},
@@ -61,6 +62,16 @@ def _amount_to_bridge_usd_int(amount: Decimal) -> int:
     )
 
 
+def _usd_matches_chain(expected: int, actual: int) -> bool:
+    """
+    Сумма в заявке (Decimal) и usd в событии могут расходиться на несколько
+    микро-USDC из-за float в HL API / округления.
+    """
+    if actual == expected:
+        return True
+    return abs(actual - expected) <= 2000  # до 0,002 USDC
+
+
 def _w3(testnet: bool) -> Optional[Web3]:
     url = _rpc_url(testnet)
     try:
@@ -73,6 +84,76 @@ def _w3(testnet: bool) -> Optional[Web3]:
         return None
 
 
+def _decode_finalized_and_match(
+    c: Any,
+    log: dict[str, Any],
+    wallet_lower: str,
+    expected_usd: int,
+) -> bool:
+    try:
+        decoded = c.events.FinalizedWithdrawal().process_log(log)
+    except Exception:
+        return False
+    args = decoded["args"]
+    dest = (args.get("destination") or "").lower()
+    user_addr = (args.get("user") or "").lower()
+    # Вывод на свой кошелёк: user и destination совпадают; на всякий случай принимаем любой из них.
+    if dest != wallet_lower and user_addr != wallet_lower:
+        return False
+    usd = int(args.get("usd", 0))
+    return _usd_matches_chain(expected_usd, usd)
+
+
+def _get_logs_chunk(
+    w3: Web3,
+    bridge: str,
+    topic0: Any,
+    from_block: int,
+    to_block: int,
+    wallet_topic: Optional[str],
+) -> list[Any]:
+    """Один вызов get_logs; wallet_topic=None — только topic0 (шире, но надёжнее при капризном RPC)."""
+    base: dict[str, Any] = {
+        "fromBlock": from_block,
+        "toBlock": to_block,
+        "address": Web3.to_checksum_address(bridge),
+        "topics": [topic0, wallet_topic] if wallet_topic is not None else [topic0],
+    }
+    return list(w3.eth.get_logs(base))
+
+
+def _get_logs_range_resilient(
+    w3: Web3,
+    bridge: str,
+    topic0: Any,
+    wallet_topic: Optional[str],
+    fb: int,
+    tb: int,
+) -> list[Any]:
+    """
+    eth_getLogs: при ошибке (слишком большой диапазон/результат) делит пополам вместо
+    молчаливого пропуска блоков — из‑за этого заявка могла не закрываться.
+    """
+    if fb > tb:
+        return []
+    try:
+        return _get_logs_chunk(w3, bridge, topic0, fb, tb, wallet_topic)
+    except Exception as e:
+        if tb - fb <= 1:
+            logger.warning(
+                "get_logs окончательно не удался %s-%s topic1=%s: %s",
+                fb,
+                tb,
+                wallet_topic is not None,
+                e,
+            )
+            return []
+        mid = (fb + tb) // 2
+        left = _get_logs_range_resilient(w3, bridge, topic0, wallet_topic, fb, mid)
+        right = _get_logs_range_resilient(w3, bridge, topic0, wallet_topic, mid + 1, tb)
+        return left + right
+
+
 def _find_finalized_log_for_op(
     w3: Web3,
     bridge: str,
@@ -81,8 +162,8 @@ def _find_finalized_log_for_op(
     from_block: int,
 ) -> Optional[dict[str, Any]]:
     """
-    Ищет лог FinalizedWithdrawal с destination == wallet и usd == expected.
-    Фильтр по indexed user (тот же адрес, что и кошелёк) сужает выборку.
+    Ищет лог FinalizedWithdrawal с destination или user == wallet и usd ≈ expected.
+    Сначала узкий фильтр (topic0 + indexed user); если пусто — поиск только по topic0.
     """
     c = w3.eth.contract(
         address=Web3.to_checksum_address(bridge),
@@ -90,42 +171,32 @@ def _find_finalized_log_for_op(
     )
     latest = int(w3.eth.block_number)
     to_block = latest
-    # indexed user — адрес в topic как 32 байта (Hyperliquid при выводе на свой кошелёк совпадает с destination).
     pad = "0x" + wallet_lower[2:].rjust(64, "0")
     topic0 = w3.keccak(text="FinalizedWithdrawal(address,address,uint64,uint64,bytes32)")
 
-    # Несколько чанков — публичные RPC режут огромные get_logs.
-    chunk = 40_000
-    b = max(1, from_block)
-    while b <= to_block:
-        chunk_end = min(b + chunk - 1, to_block)
-        try:
-            logs = w3.eth.get_logs(
-                {
-                    "fromBlock": b,
-                    "toBlock": chunk_end,
-                    "address": Web3.to_checksum_address(bridge),
-                    "topics": [topic0, pad],
-                }
-            )
-        except Exception as e:
-            logger.warning("get_logs %s-%s: %s", b, chunk_end, e)
-            b = chunk_end + 1
-            continue
-        for log in logs:
-            try:
-                decoded = c.events.FinalizedWithdrawal().process_log(log)
-            except Exception:
-                continue
-            args = decoded["args"]
-            dest = (args.get("destination") or "").lower()
-            if dest != wallet_lower:
-                continue
-            usd = int(args.get("usd", 0))
-            if usd == expected_usd:
-                return log
-        b = chunk_end + 1
-    return None
+    def scan_with_mode(use_wallet_topic: bool) -> Optional[dict[str, Any]]:
+        wallet_topic: Optional[str] = pad if use_wallet_topic else None
+        step = 2000
+        b = max(1, from_block)
+        while b <= to_block:
+            ce = min(b + step - 1, to_block)
+            logs = _get_logs_range_resilient(w3, bridge, topic0, wallet_topic, b, ce)
+            for log in logs:
+                if _decode_finalized_and_match(c, log, wallet_lower, expected_usd):
+                    return log
+            b = ce + 1
+        return None
+
+    found = scan_with_mode(True)
+    if found:
+        return found
+    found = scan_with_mode(False)
+    if found:
+        logger.info(
+            "FinalizedWithdrawal найден по фильтру только topic0 (без topic1 user) wallet=%s",
+            wallet_lower[:12],
+        )
+    return found
 
 
 def try_finalize_usdc_withdrawals_for_wallet(wallet: TraderWallet) -> int:

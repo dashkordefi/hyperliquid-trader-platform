@@ -6,9 +6,10 @@
 3. Подключите репозиторий, выберите render.yaml (или создайте Web Service вручную).
 4. После первого деплоя откройте Dashboard сервиса → Environment и добавьте:
    - ALLOWED_HOSTS = <имя-сервиса>.onrender.com
-   - CSRF_TRUSTED_ORIGINS = https://<имя-сервиса>.onrender.com
    - RENDER_EXTERNAL_HOSTNAME = <имя-сервиса>.onrender.com
-      (опционально, дублирует хост в ALLOWED_HOSTS)
+     (добавляет хост в ALLOWED_HOSTS и автоматически https://… в CSRF_TRUSTED_ORIGINS — без этого вход даёт 403 CSRF)
+   - Render подставляет RENDER=true — включён SECURE_PROXY_SSL_HEADER для HTTPS за прокси
+   - Свой домен: дополнительно CSRF_TRUSTED_ORIGINS = https://ваш-домен.ru
 5. Для постоянной БД: в Render добавьте PostgreSQL (Free) и подключите к сервису — подставится DATABASE_URL.
    Без Postgres используется SQLite на диске; на free tier данные могут теряться при перезапуске.
 6. Создать суперпользователя: в Render → Shell:

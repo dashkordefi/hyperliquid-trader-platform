@@ -90,33 +90,6 @@
         .messages .info { background: rgba(88, 166, 255, 0.12); border: 1px solid var(--accent); }
         .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
         code { font-size: 0.85em; background: #21262d; padding: 0.1rem 0.35rem; border-radius: 4px; }
-        .trader-funds-feed {
-            background: #0d1117;
-            border-bottom: 1px solid var(--border);
-            padding: 0.55rem 1.25rem;
-            font-size: 0.8rem;
-            line-height: 1.45;
-        }
-        .trader-funds-feed-inner { max-width: 1200px; margin: 0 auto; }
-        .trader-funds-feed-title {
-            display: block;
-            font-weight: 600;
-            color: var(--muted);
-            margin-bottom: 0.35rem;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .trader-funds-feed-row {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 0.35rem 0.75rem;
-            align-items: start;
-            padding: 0.4rem 0;
-            border-top: 1px solid var(--border);
-        }
-        .trader-funds-feed-row:first-of-type { border-top: none; padding-top: 0; }
-        .funds-feed-summary { min-width: 0; }
         .funds-feed-status {
             white-space: nowrap;
             font-weight: 500;
@@ -130,23 +103,22 @@
         .funds-feed-status.status-pending_mo { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
         .funds-feed-status.status-pending_blockchain,
         .funds-feed-status.status-pending_arbitrum_finalization { background: rgba(88, 166, 255, 0.12); color: var(--accent); }
-        .funds-feed-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; }
-        .funds-feed-signers {
-            grid-column: 1 / -1;
-            color: var(--muted);
-            font-size: 0.76rem;
+        .funds-bridge-banner {
+            background: linear-gradient(180deg, rgba(88, 166, 255, 0.18) 0%, rgba(13, 17, 23, 0.95) 100%);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.35);
+            padding: 0.75rem 1.25rem;
+            font-size: 0.88rem;
+            line-height: 1.5;
         }
-        .funds-feed-empty { color: var(--muted); margin: 0; }
-        .funds-feed-tx {
-            grid-column: 1 / -1;
-            margin-top: 0.15rem;
+        .funds-bridge-banner-inner {
+            max-width: 1200px;
+            margin: 0 auto;
         }
-        .funds-feed-ack {
-            grid-column: 1 / -1;
-            margin-top: 0.35rem;
-            padding-top: 0.35rem;
-            border-top: 1px dashed var(--border);
+        .funds-bridge-banner p {
+            margin: 0 0 0.5rem;
         }
+        .funds-bridge-banner p:last-child { margin-bottom: 0; }
+        .funds-bridge-banner strong { color: var(--accent); }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -163,6 +135,7 @@
                     <a href="{% url 'wallet_select' %}">Кошельки</a>
                     <a href="{% url 'dashboard' %}">Торговля</a>
                     <a href="{% url 'trade_history' %}">История сделок</a>
+                    <a href="{% url 'funds_history' %}">История депозитов/выводов</a>
                 {% endif %}
                 {% if is_compliance or is_middleoffice %}
                     <a href="{% url 'approvals_list' %}">Согласования</a>
@@ -177,64 +150,17 @@
             {% endif %}
         </nav>
     </header>
-    {% if is_trader and funds_operation_feed_wallet and funds_operation_feed %}
-    <div class="trader-funds-feed" role="region" aria-label="Заявки на депозит и вывод">
-        <div class="trader-funds-feed-inner">
-            <span class="trader-funds-feed-title">Депозит / вывод · {{ funds_operation_feed_wallet }}</span>
-                {% for op in funds_operation_feed %}
-                <div class="trader-funds-feed-row">
-                    <div class="funds-feed-summary">
-                        <strong>{{ op.get_kind_display }}</strong>
-                        · {{ op.amount }}
-                        · <span class="muted">{{ op.get_route_display }}</span>
-                        <span class="muted"> · {{ op.created_at|date:"d.m.Y H:i" }}</span>
-                    </div>
-                    <div class="funds-feed-actions">
-                        <span class="funds-feed-status status-{{ op.workflow_status_kind }}">{{ op.workflow_status_label }}</span>
-                        <form method="post" action="{% url 'funds_operation_delete' op.pk %}"
-                            onsubmit="return confirm('Удалить эту заявку из списка? Для уже отправленного в сеть вывода средства всё равно придут на кошелёк.');">
-                            {% csrf_token %}
-                            <button type="submit" class="danger" style="font-size:0.72rem;padding:0.2rem 0.5rem">Удалить</button>
-                        </form>
-                    </div>
-                    <div class="funds-feed-signers">
-                        Compliance:
-                        {% if op.compliance_approved_by %}
-                            {{ op.compliance_approved_by.get_username }} ({{ op.compliance_approved_at|date:"d.m.Y H:i" }})
-                        {% else %}
-                            <span class="muted">не подписано</span>
-                        {% endif %}
-                        &nbsp;·&nbsp;
-                        Middle office:
-                        {% if op.middleoffice_approved_by %}
-                            {{ op.middleoffice_approved_by.get_username }} ({{ op.middleoffice_approved_at|date:"d.m.Y H:i" }})
-                        {% else %}
-                            <span class="muted">не подписано</span>
-                        {% endif %}
-                    </div>
-                    {% if op.blockchain_tx_hash %}
-                        {% with txurl=op|funds_tx_explorer_url:hl_network_testnet %}
-                            {% if txurl %}
-                                <div class="funds-feed-tx">
-                                    <a href="{{ txurl }}" target="_blank" rel="noopener noreferrer" title="{{ op.blockchain_tx_hash }}">Транзакция в блокчейне</a>
-                                    <span class="muted">({{ op.blockchain_tx_hash|truncatechars:18 }})</span>
-                                </div>
-                            {% endif %}
-                        {% endwith %}
-                    {% endif %}
-                    {% if op.both_approved %}
-                    <div class="funds-feed-ack">
-                        <form method="post" action="{% url 'funds_operation_ack' op.pk %}" style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center">
-                            {% csrf_token %}
-                            <span class="muted" style="font-size:0.76rem;width:100%">Средства уже в сети, а строка висит? Подтвердите — скроем из ленты.</span>
-                            <input type="text" name="tx_hash" placeholder="Хеш tx 0x… (по желанию)" maxlength="80" autocomplete="off"
-                                style="flex:1;min-width:12rem;max-width:24rem;font-size:0.78rem" />
-                            <button type="submit" class="btn secondary" style="font-size:0.72rem;padding:0.25rem 0.5rem">Подтвердить получение</button>
-                        </form>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
+    {% if is_trader and funds_bridge_banner_ops %}
+    <div class="funds-bridge-banner" role="status" aria-live="polite">
+        <div class="funds-bridge-banner-inner">
+            {% for op in funds_bridge_banner_ops %}
+            <p>
+                <strong>Вывод USDC на Arbitrum в пути</strong>
+                · кошелёк {{ op.wallet.label }} · <strong>{{ op.amount }}</strong> USDC.
+                Hyperliquid принял вывод; средства появятся на Arbiscan после финализации bridge.
+                Как только транзакция будет найдена в сети, это сообщение исчезнет; статус и ссылка на tx — в разделе «История депозитов/выводов».
+            </p>
+            {% endfor %}
         </div>
     </div>
     {% endif %}

@@ -4,6 +4,7 @@ from typing import Optional
 
 from django.conf import settings
 from django.contrib import messages
+from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -310,6 +311,34 @@ def trade_history(request: HttpRequest) -> HttpResponse:
         request,
         "trading/trade_history.html",
         {"wallet": wallet, "data": data},
+    )
+
+
+@login_required
+def funds_history(request: HttpRequest) -> HttpResponse:
+    """Открытые и завершённые заявки на депозит/вывод по всем кошелькам пользователя."""
+    if not _is_trader(request.user):
+        return redirect("landing")
+    base = FundsOperationRequest.objects.filter(wallet__user=request.user).select_related(
+        "wallet", "compliance_approved_by", "middleoffice_approved_by"
+    )
+    pending_operations = list(
+        base.filter(executed_at__isnull=True, rejected_at__isnull=True).order_by(
+            "-created_at"
+        )[:100]
+    )
+    completed_operations = list(
+        base.filter(Q(executed_at__isnull=False) | Q(rejected_at__isnull=False)).order_by(
+            "-created_at"
+        )[:300]
+    )
+    return render(
+        request,
+        "trading/funds_history.html",
+        {
+            "pending_operations": pending_operations,
+            "completed_operations": completed_operations,
+        },
     )
 
 
@@ -945,11 +974,9 @@ def funds_operation_ack(request: HttpRequest, pk: int) -> HttpResponse:
     """
     if not _is_trader(request.user):
         return redirect("landing")
-    wallet = _active_wallet(request)
-    if not wallet:
-        messages.error(request, "Выберите кошелёк.")
-        return redirect("wallet_select")
-    op = get_object_or_404(FundsOperationRequest, pk=pk, wallet=wallet)
+    op = get_object_or_404(
+        FundsOperationRequest, pk=pk, wallet__user=request.user
+    )
     if op.executed_at:
         messages.info(request, "Эта заявка уже отмечена исполненной.")
         return redirect("dashboard")
@@ -979,11 +1006,9 @@ def funds_operation_delete(request: HttpRequest, pk: int) -> HttpResponse:
     """
     if not _is_trader(request.user):
         return redirect("landing")
-    wallet = _active_wallet(request)
-    if not wallet:
-        messages.error(request, "Выберите кошелёк.")
-        return redirect("wallet_select")
-    op = get_object_or_404(FundsOperationRequest, pk=pk, wallet=wallet)
+    op = get_object_or_404(
+        FundsOperationRequest, pk=pk, wallet__user=request.user
+    )
     if op.executed_at:
         messages.error(
             request,
