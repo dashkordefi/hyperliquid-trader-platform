@@ -10,7 +10,9 @@ admin.site.unregister(User)
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    filter_horizontal = ("groups", "user_permissions")
+    # Только группы — удобный выбор ролей (approvers). user_permissions через
+    # filter_horizontal на Render часто даёт 500 при сохранении (память/объём формы).
+    filter_horizontal = ("groups",)
     list_display = (
         "username",
         "email",
