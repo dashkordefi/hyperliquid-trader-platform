@@ -4,11 +4,123 @@
 <h1>{% if kind == "deposit" %}Заявка на депозит{% else %}Заявка на вывод{% endif %}</h1>
 <p class="muted">Кошелёк: {{ wallet.label }} · После создания заявки нужны два согласования (compliance и middle office).</p>
 
+{% if kind == "deposit" %}
+<div class="card" style="margin-bottom:1rem;border-color:var(--border);font-size:0.9rem;line-height:1.5">
+    <strong>Как это работает:</strong> заявка → согласования compliance и middle office →
+    <strong>сервер подписывает транзакцию</strong> ключом кошелька (ключ должен быть сохранён в карточке кошелька)
+    и отправляет перевод на контракт bridge Hyperliquid (USDC на Arbitrum) или на Unit-адрес (ETH на Ethereum), в зависимости от способа.
+    Минимум для USDC через bridge — <strong>5 USDC</strong>.
+    {% if hl_network_testnet %}
+    <span class="muted">(Testnet: Arbitrum Sepolia / Sepolia ETH.)</span>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if form.non_field_errors %}
+<div class="card" style="margin-bottom:1rem;border-color:#da3633">
+    {{ form.non_field_errors }}
+</div>
+{% endif %}
+
 <div class="card">
-    <form method="post">{% csrf_token %}
+    <form method="post" id="operation-request-form">{% csrf_token %}
         {{ form.as_p }}
+        {% if kind == "withdraw" and withdraw_limits %}
+        <p id="withdraw-max-hint" class="muted" style="margin-top:0.75rem;line-height:1.45" aria-live="polite"></p>
+        {{ withdraw_limits|json_script:"withdraw-limits-data" }}
+        {% endif %}
         <button type="submit">Отправить заявку</button>
         <a href="{% url 'dashboard' %}" class="btn secondary" style="margin-left:0.5rem">Назад</a>
     </form>
 </div>
+{% if kind == "withdraw" and withdraw_limits %}
+<script>
+(function () {
+  var routeEl = document.getElementById("id_route");
+  var hint = document.getElementById("withdraw-max-hint");
+  var dataEl = document.getElementById("withdraw-limits-data");
+  var amtEl = document.getElementById("id_amount");
+  var allCb = document.getElementById("id_withdraw_all");
+  if (!routeEl || !hint || !dataEl) return;
+  var limits = {};
+  try {
+    limits = JSON.parse(dataEl.textContent);
+  } catch (e) {
+    return;
+  }
+  function fmtUsdc(n) {
+    if (n === null || n === undefined || (typeof n === "number" && !isFinite(n))) return "—";
+    return (
+      Number(n).toLocaleString("ru-RU", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6,
+      }) + " USDC"
+    );
+  }
+  function fmtEth(n) {
+    if (n === null || n === undefined || (typeof n === "number" && !isFinite(n))) return "—";
+    return (
+      Number(n).toLocaleString("ru-RU", {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 8,
+      }) + " ETH"
+    );
+  }
+  function maxForRoute() {
+    var v = routeEl.value;
+    if (v === "usdc_arbitrum") return limits.usdc_arbitrum;
+    if (v === "eth_ethereum") return limits.eth_ethereum;
+    return null;
+  }
+  function syncWithdrawAll() {
+    if (!allCb || !amtEl) return;
+    if (allCb.checked) {
+      var n = maxForRoute();
+      if (n !== null && n !== undefined && isFinite(Number(n)) && Number(n) > 0) {
+        amtEl.value = String(n);
+      } else {
+        amtEl.value = "";
+      }
+      amtEl.setAttribute("readonly", "readonly");
+    } else {
+      amtEl.removeAttribute("readonly");
+    }
+  }
+  function update() {
+    if (limits.error) {
+      hint.textContent = "Не удалось загрузить лимиты: " + limits.error;
+      if (allCb && amtEl) {
+        allCb.disabled = true;
+        amtEl.removeAttribute("readonly");
+      }
+      return;
+    }
+    if (allCb) allCb.disabled = false;
+    var v = routeEl.value;
+    if (v === "usdc_arbitrum") {
+      hint.textContent =
+        "Максимально доступно к выводу сейчас: " +
+        fmtUsdc(limits.usdc_arbitrum) +
+        " (perp USDC, bridge на Arbitrum).";
+    } else if (v === "eth_ethereum") {
+      hint.textContent =
+        "Максимально доступно к выводу сейчас: " +
+        fmtEth(limits.eth_ethereum) +
+        " (spot ETH → Ethereum). Минимум сети Hyperliquid ~0,007 ETH.";
+    } else {
+      hint.textContent = "";
+    }
+    syncWithdrawAll();
+  }
+  routeEl.addEventListener("change", update);
+  routeEl.addEventListener("input", update);
+  if (allCb) {
+    allCb.addEventListener("change", function () {
+      syncWithdrawAll();
+    });
+  }
+  update();
+})();
+</script>
+{% endif %}
 {% endblock %}

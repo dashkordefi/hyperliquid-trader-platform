@@ -70,8 +70,26 @@ class HyperliquidInfoClient:
     def meta(self, dex: Optional[str] = None) -> Any:
         return self._post(self._with_type("meta", dex=dex))
 
+    def all_perp_metas(self) -> Any:
+        """Все perp-dex (нативный + HIP-3 и др.); см. allPerpMetas в доке HL."""
+        return self._post(self._with_type("allPerpMetas"))
+
+    def perp_dexs(self) -> Any:
+        """Список perp-dex (имена деплоеров и т.д.); опционально для отладки."""
+        return self._post(self._with_type("perpDexs"))
+
     def spot_meta(self) -> Any:
         return self._post(self._with_type("spotMeta"))
+
+    def meta_and_asset_ctxs(self, dex: Optional[str] = None) -> Any:
+        """Перп: [meta, assetCtxs] — в ctx oraclePx, markPx, midPx и т.д."""
+        if dex is not None and dex != "":
+            return self._post(self._with_type("metaAndAssetCtxs", dex=dex))
+        return self._post(self._with_type("metaAndAssetCtxs"))
+
+    def spot_meta_and_asset_ctxs(self) -> Any:
+        """Спот: [spotMeta, assetCtxs] — в ctx markPx, midPx (без oracle)."""
+        return self._post(self._with_type("spotMetaAndAssetCtxs"))
 
     def clearinghouse_state(self, user: str) -> Any:
         return self._post(self._with_type("clearinghouseState", user=user))
@@ -87,6 +105,13 @@ class HyperliquidInfoClient:
 
     def frontend_open_orders(self, user: str, dex: Optional[str] = None) -> Any:
         return self._post(self._with_type("frontendOpenOrders", user=user, dex=dex))
+
+    def user_fills(self, user: str, aggregate_by_time: bool = False) -> Any:
+        """История исполнений (до ~2000 последних записей)."""
+        body: dict[str, Any] = {"type": "userFills", "user": user}
+        if aggregate_by_time:
+            body["aggregateByTime"] = True
+        return self._post(body)
 
     def l2_book(
         self,

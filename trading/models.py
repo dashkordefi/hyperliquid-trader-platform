@@ -12,6 +12,12 @@ class TraderWallet(models.Model):
     )
     label = models.CharField("Название аккаунта", max_length=120)
     address = models.CharField("Адрес 0x…", max_length=42)
+    trading_key_encrypted = models.TextField(
+        "Ключ для ордеров (зашифровано)",
+        blank=True,
+        default="",
+        help_text="Fernet; не редактировать вручную.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -45,6 +51,10 @@ class FundsOperationRequest(models.Model):
     route = models.CharField(max_length=32, choices=Route.choices)
     amount = models.DecimalField(max_digits=24, decimal_places=8)
     note = models.CharField("Комментарий", max_length=500, blank=True)
+    hl_testnet = models.BooleanField(
+        default=False,
+        help_text="Mainnet vs testnet на момент создания заявки (исполнение не зависит от сессии аппрувера).",
+    )
 
     compliance_approved_at = models.DateTimeField(null=True, blank=True)
     compliance_approved_by = models.ForeignKey(
@@ -64,7 +74,19 @@ class FundsOperationRequest(models.Model):
     )
 
     executed_at = models.DateTimeField(null=True, blank=True)
+    withdrawal_bridge_submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Вывод USDC→Arbitrum: Hyperliquid принял withdraw3; ждём FinalizedWithdrawal на Bridge2.",
+    )
     rejected_at = models.DateTimeField(null=True, blank=True)
+    blockchain_tx_hash = models.CharField(
+        "Хеш транзакции в блокчейне",
+        max_length=80,
+        blank=True,
+        default="",
+        help_text="0x… после исполнения (Arbitrum или Ethereum в зависимости от маршрута).",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -81,3 +103,32 @@ class FundsOperationRequest(models.Model):
             self.compliance_approved_at is not None
             and self.middleoffice_approved_at is not None
         )
+
+    @property
+    def workflow_status_kind(self) -> str:
+        """Класс для стиля: rejected, executed, pending_compliance, pending_mo, pending_blockchain."""
+        if self.rejected_at is not None:
+            return "rejected"
+        if self.executed_at is not None:
+            return "executed"
+        if self.compliance_approved_at is None:
+            return "pending_compliance"
+        if self.middleoffice_approved_at is None:
+            return "pending_mo"
+        if self.withdrawal_bridge_submitted_at is not None:
+            return "pending_arbitrum_finalization"
+        return "pending_blockchain"
+
+    @property
+    def workflow_status_label(self) -> str:
+        if self.rejected_at:
+            return "Отклонена"
+        if self.executed_at:
+            return "Исполнена в блокчейне"
+        if self.compliance_approved_at is None:
+            return "Ожидает согласования compliance"
+        if self.middleoffice_approved_at is None:
+            return "Ожидает согласования middle office"
+        if self.withdrawal_bridge_submitted_at is not None:
+            return "USDC в пути: ожидаем финализацию на Arbitrum (FinalizedWithdrawal)"
+        return "Согласовано, ожидает исполнения в блокчейне"

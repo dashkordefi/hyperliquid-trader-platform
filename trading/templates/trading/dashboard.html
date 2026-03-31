@@ -1,121 +1,1051 @@
 {% extends "trading/base.html" %}
 {% block title %}Торговля — {{ wallet.label }}{% endblock %}
+{% block main_class %}trade-main-shell{% endblock %}
+{% block extra_css %}
+<style>
+    main.trade-main-shell {
+        max-width: 1680px;
+        padding: 0.75rem 1rem 1.5rem;
+    }
+    .trade-topbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .trade-topbar h1 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+    }
+    .trade-topbar .meta { font-size: 0.85rem; color: var(--muted); }
+    .trade-topbar .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .trade-network-switch {
+        display: inline-flex;
+        gap: 0.35rem;
+        align-items: center;
+        margin-right: 0.25rem;
+    }
+    .trade-network-switch .hl-net-btn {
+        padding: 0.35rem 0.65rem;
+        font-size: 0.8rem;
+    }
+    .trade-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 1.25rem;
+        align-items: start;
+    }
+    @media (max-width: 1100px) {
+        .trade-layout { grid-template-columns: 1fr; }
+        .trade-sidebar { position: static !important; order: 2; }
+        .trade-center { order: 1; }
+    }
+    .trade-center {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .trade-sidebar {
+        position: sticky;
+        top: 0.75rem;
+        background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1rem 1.1rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    .trade-sidebar-title {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin: 0 0 0.35rem;
+        font-weight: 600;
+    }
+    .trade-pair-line {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+        font-variant-numeric: tabular-nums;
+    }
+    .trade-mid-strip {
+        margin: 0 0 1rem;
+        padding: 0.65rem 0.75rem;
+        border-radius: 8px;
+        background: rgba(88, 166, 255, 0.08);
+        border: 1px solid rgba(88, 166, 255, 0.2);
+    }
+    .trade-mid-price-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem 1rem;
+        align-items: start;
+    }
+    @media (max-width: 420px) {
+        .trade-mid-price-row { grid-template-columns: 1fr; }
+    }
+    .trade-mid-strip .mid-label {
+        display: block;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 0.2rem;
+    }
+    .trade-mid-strip .mid-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
+    }
+    .trade-mid-strip .mid-coin {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-top: 0.35rem;
+        word-break: break-all;
+    }
+    .trade-sidebar .hl-form label { margin-top: 0.5rem; }
+    .trade-sidebar .hl-form label:first-of-type { margin-top: 0; }
+    .trade-sidebar input, .trade-sidebar select {
+        max-width: 100%;
+    }
+    .trade-order-block {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+    }
+    .trade-order-block h3 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--muted);
+        margin: 0 0 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .trade-sidebar .muted-note {
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: var(--muted);
+        margin: 0 0 0.75rem;
+    }
+    .trade-sidebar form.place-order-form label { margin-top: 0.65rem; }
+    .trade-sidebar form.place-order-form label:first-child { margin-top: 0; }
+    .btn-submit-order {
+        width: 100%;
+        margin-top: 1rem;
+        padding: 0.55rem 1rem;
+        font-weight: 600;
+    }
+    .trade-center .card {
+        margin-bottom: 0;
+    }
+    .trade-center .card h2 {
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin-bottom: 0.65rem;
+    }
+    .trade-center table {
+        font-size: 0.8125rem;
+    }
+    .trade-center tbody tr:hover {
+        background: rgba(88, 166, 255, 0.06);
+    }
+    .trade-testnet-banner {
+        margin: 0 0 1rem;
+        padding: 0.55rem 0.9rem;
+        border-radius: 8px;
+        border: 1px solid var(--warn);
+        background: rgba(210, 153, 34, 0.1);
+        font-size: 0.88rem;
+        color: var(--text);
+    }
+    .trade-testnet-banner code { font-size: 0.85em; }
+    .trade-usdc-panel {
+        margin: 0.75rem 0;
+        padding: 0.75rem 0.85rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(88, 166, 255, 0.06);
+    }
+    .trade-usdc-panel .trade-usdc-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+        font-size: 0.88rem;
+        margin-bottom: 0.35rem;
+    }
+    .trade-usdc-panel .trade-usdc-row:last-of-type { margin-bottom: 0; }
+    .trade-usdc-panel .trade-usdc-row strong {
+        font-variant-numeric: tabular-nums;
+    }
+    dialog.trade-modal {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 1rem 1.1rem;
+        max-width: 100%;
+        width: min(420px, 100vw - 2rem);
+    }
+    dialog.trade-modal::backdrop {
+        background: rgba(0, 0, 0, 0.55);
+    }
+    dialog.trade-modal h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    dialog.trade-modal .hl-form label { margin-top: 0.65rem; display: block; }
+    dialog.trade-modal .hl-form label:first-of-type { margin-top: 0; }
+    dialog.trade-modal .modal-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+    dialog.trade-modal .modal-actions button { flex: 1; min-width: 0; }
+    .perp-leverage-wrap {
+        margin-top: 0.65rem;
+        padding: 0.55rem 0.65rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(88, 166, 255, 0.06);
+    }
+    .perp-leverage-wrap .perp-leverage-label {
+        display: block;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-bottom: 0.35rem;
+        font-weight: 600;
+    }
+    .perp-leverage-row {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+    .perp-leverage-row input[type="range"] {
+        flex: 1;
+        min-width: 0;
+    }
+    #perp-leverage-readout {
+        min-width: 3.25rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+    .order-field-hidden {
+        display: none !important;
+    }
+</style>
+{% endblock %}
 {% block content %}
-<h1>Основная страница</h1>
-<p class="muted">Аккаунт: <strong>{{ wallet.label }}</strong> · <code>{{ wallet.address }}</code></p>
 
-<div class="row card" style="align-items:center">
-    <form method="get" class="row">
-        <div>
-            <label for="coin">Рынок (coin для API)</label>
-            <input name="coin" id="coin" value="{{ coin }}" placeholder="ETH, @151, xyz:TSLA…">
+{% if hl_network_testnet %}
+<p class="trade-testnet-banner"><strong>Testnet</strong> — запросы и ордера идут на <code>api.hyperliquid-testnet.xyz</code>. Это не mainnet: другой аккаунт и баланс; пополнение — через официальный тестовый кран / мост HL.</p>
+{% endif %}
+
+<div class="trade-topbar">
+    <div>
+        <h1>Торговля</h1>
+        <p class="meta">{{ wallet.label }} · <code>{{ wallet.address }}</code></p>
+    </div>
+    <div class="actions">
+        <span class="trade-network-switch" title="Сеть Hyperliquid для этого сеанса">
+            <form method="post" action="{% url 'set_hyperliquid_network' %}" style="display:inline;margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="hidden" name="mode" value="mainnet">
+                <button type="submit" class="btn{% if hl_network_testnet %} secondary{% endif %} hl-net-btn"{% if not hl_network_testnet %} aria-current="true"{% endif %}>Mainnet</button>
+            </form>
+            <form method="post" action="{% url 'set_hyperliquid_network' %}" style="display:inline;margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="hidden" name="mode" value="testnet">
+                <button type="submit" class="btn{% if not hl_network_testnet %} secondary{% endif %} hl-net-btn"{% if hl_network_testnet %} aria-current="true"{% endif %}>Testnet</button>
+            </form>
+        </span>
+        <a href="{% url 'deposit_request' %}" class="btn">Депозит</a>
+        <a href="{% url 'withdraw_request' %}" class="btn secondary">Вывод</a>
+        <a href="{% url 'wallet_select' %}" class="btn secondary">Кошельки</a>
+    </div>
+</div>
+
+<div class="trade-layout">
+    <div class="trade-center">
+        {% if data.error %}
+        <div class="card"><p class="muted">Ошибка Info API: {{ data.error }}</p></div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Balances</h2>
+            {% if data.balance_rows %}
+                <div style="overflow-x:auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Coin</th>
+                            <th>Token</th>
+                            <th>Balance</th>
+                            <th>Hold</th>
+                            <th>Entry Ntl</th>
+                            <th>Withdrawable</th>
+                            <th>Счёт</th>
+                            <th>На адрес HL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for r in data.balance_rows %}
+                        <tr>
+                            <td>{{ r.coin }}</td>
+                            <td>{{ r.token }}</td>
+                            <td>{{ r.total }}</td>
+                            <td>{{ r.hold }}</td>
+                            <td>{% if r.entry_ntl is not None %}{{ r.entry_ntl }}{% else %}—{% endif %}</td>
+                            <td>{% if r.withdrawable is not None %}{{ r.withdrawable }}{% else %}—{% endif %}</td>
+                            <td>{{ r.account }}</td>
+                            <td>
+                                {% if r.account == "Spot" and hl_trading_key_configured %}
+                                    {% if has_spot_transfer_destinations %}
+                                    <button type="button" class="btn secondary spot-transfer-open" style="font-size:0.8rem;padding:0.3rem 0.55rem"
+                                        data-coin="{{ r.coin }}"
+                                        data-available="{% if r.available is not None %}{{ r.available|floatformat:8 }}{% else %}0{% endif %}">Перевод</button>
+                                    {% else %}
+                                    <span class="muted" style="font-size:0.8rem">Нет других кошельков</span>
+                                    {% endif %}
+                                {% elif r.account == "Spot" %}
+                                <span class="muted" style="font-size:0.8rem">Нужен ключ</span>
+                                {% else %}
+                                <span class="muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            {% else %}
+                <p class="muted">Нет ненулевых балансов по данным API.</p>
+            {% endif %}
         </div>
-        <button type="submit">Показать</button>
+
+        <div class="card">
+            <h2>perpetual positions</h2>
+            {% if data.perp_positions %}
+                <div style="overflow-x:auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Coin</th>
+                            <th>Size</th>
+                            <th>Pos. value</th>
+                            <th>Entry</th>
+                            <th>Mark</th>
+                            <th>Liq.</th>
+                            <th>Margin</th>
+                            <th>leverage</th>
+                            <th>max lev</th>
+                            {% if hl_trading_key_configured %}<th></th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for p in data.perp_positions %}
+                        <tr>
+                            <td>{{ p.coin }}</td>
+                            <td>{{ p.size }}</td>
+                            <td>{{ p.position_value }}</td>
+                            <td>{{ p.entry_price }}</td>
+                            <td>{{ p.mark_price }}</td>
+                            <td>{{ p.liquidation_price }}</td>
+                            <td>{{ p.margin }}</td>
+                            <td>{% if p.leverage_current is not None %}{{ p.leverage_current }}×{% else %}—{% endif %}</td>
+                            <td>{% if p.max_leverage is not None %}{{ p.max_leverage }}×{% else %}—{% endif %}</td>
+                            {% if hl_trading_key_configured %}
+                            <td style="white-space:normal;max-width:14rem">
+                                <button type="button" class="btn secondary perp-close-limit-open" style="font-size:0.72rem;padding:0.25rem 0.45rem;margin:0.15rem 0.15rem 0.15rem 0;display:inline-block"
+                                    data-coin="{{ p.coin }}"
+                                    data-abs="{% if p.abs_size is not None %}{{ p.abs_size }}{% endif %}">Закрыть по лимитному ордеру</button>
+                                <button type="button" class="btn secondary perp-close-market-open" style="font-size:0.72rem;padding:0.25rem 0.45rem;margin:0.15rem 0.15rem 0.15rem 0;display:inline-block"
+                                    data-coin="{{ p.coin }}"
+                                    data-abs="{% if p.abs_size is not None %}{{ p.abs_size }}{% endif %}">Закрыть по рыночному ордеру</button>
+                            </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            {% else %}
+                <p class="muted">Нет открытых позиций.</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>Open Limit Orders</h2>
+            {% if data.open_orders %}
+                <div style="overflow-x:auto">
+                <table>
+                    <thead><tr><th>Coin</th><th>Side</th><th>Limit Price</th><th>Size</th><th>OID</th>{% if hl_trading_key_configured %}<th></th>{% endif %}</tr></thead>
+                    <tbody>
+                    {% for o in data.open_orders %}
+                        <tr>
+                            <td>{{ o.coin }}</td>
+                            <td>{{ o.side }}</td>
+                            <td>{{ o.limit_px }}</td>
+                            <td>{{ o.sz }}</td>
+                            <td>{{ o.oid }}</td>
+                            {% if hl_trading_key_configured %}
+                            <td style="white-space:nowrap">
+                                {% if o.oid is not None %}
+                                <form method="post" action="{% url 'cancel_open_order' %}" class="cancel-order-form" style="display:inline;margin:0" onsubmit="return confirm('Отменить ордер OID {{ o.oid }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <input type="hidden" name="coin" value="{{ o.coin }}">
+                                    <input type="hidden" name="oid" value="{{ o.oid }}">
+                                    <button type="submit" class="btn secondary" style="font-size:0.78rem;padding:0.25rem 0.5rem">Отменить ордер</button>
+                                </form>
+                                {% else %}
+                                <span class="muted">—</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            {% else %}
+                <p class="muted">Нет открытых ордеров.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <aside class="trade-sidebar" aria-label="Панель торговли">
+        <form method="get" class="hl-form" action="">
+            <label for="market">Рынок</label>
+            <select name="market" id="market">
+                <option value="perp" {% if market_type == "perp" %}selected{% endif %}>Perpetuals</option>
+                <option value="spot" {% if market_type == "spot" %}selected{% endif %}>Spot</option>
+            </select>
+            <label for="symbol">Пара / монета</label>
+            <input name="symbol" id="symbol" value="{{ symbol }}" placeholder="ETH, BTC, …" autocomplete="off" list="perp-coins">
+            <datalist id="perp-coins">
+                {% for s in perp_symbols %}<option value="{{ s }}">{% endfor %}
+            </datalist>
+            <datalist id="spot-coins">
+                {% for s in spot_symbols %}<option value="{{ s }}">{% endfor %}
+            </datalist>
+            <p style="margin-top:0.75rem"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
+        </form>
+
+        <p class="trade-pair-line" id="trade-pair-display">{{ market_type|upper }} · {{ symbol }}</p>
+
+        <div class="trade-mid-strip" aria-live="polite">
+            <div class="trade-mid-price-row">
+                <div>
+                    {% if market_type == "perp" %}
+                    <span class="mid-label">Mark (mid), USDC</span>
+                    {% else %}
+                    <span class="mid-label">Mid, USDC</span>
+                    {% endif %}
+                    <span class="mid-value">{% if data.mid_price is not None %}{{ data.mid_price }}{% else %}—{% endif %}</span>
+                </div>
+                <div>
+                    {% if market_type == "perp" %}
+                    <span class="mid-label">Reference (oracle), USDC</span>
+                    {% else %}
+                    <span class="mid-label">Reference (mark), USDC</span>
+                    {% endif %}
+                    <span class="mid-value">{% if data.reference_price is not None %}{{ data.reference_price }}{% else %}—{% endif %}</span>
+                </div>
+            </div>
+            <span class="mid-coin">{% if market_type == "spot" %}{{ data.spot_display_token }}{% else %}{{ data.instrument_coin }}{% endif %}</span>
+        </div>
+
+        <div class="trade-usdc-panel">
+            <div class="trade-sidebar-title">USDC</div>
+            <div class="trade-usdc-row">
+                <span class="muted">Perp</span>
+                <strong>{% if data.usdc_snapshot.perp_usdc is not None %}{{ data.usdc_snapshot.perp_usdc }}{% else %}—{% endif %}</strong>
+            </div>
+            <div class="trade-usdc-row">
+                <span class="muted">Spot</span>
+                <strong>{% if data.usdc_snapshot.spot_usdc is not None %}{{ data.usdc_snapshot.spot_usdc }}{% else %}—{% endif %}</strong>
+            </div>
+            {% if hl_trading_key_configured %}
+            <button type="button" class="btn secondary" style="width:100%;margin-top:0.5rem" id="usdc-transfer-open">Перевод Spot ↔ Perp</button>
+            {% else %}
+            <p class="muted-note" style="margin:0.5rem 0 0;font-size:0.78rem">Для перевода нужен приватный ключ кошелька.</p>
+            {% endif %}
+        </div>
+
+        <div class="trade-order-block">
+            <h3>Ордер</h3>
+            {% if not hl_trading_key_configured %}
+                <p class="muted-note">Нет ключа для этого кошелька: создайте кошелёк с ключом или задайте <code>HYPERLIQUID_TRADING_PRIVATE_KEY</code>.</p>
+            {% else %}
+                <form method="post" action="{% url 'place_order' %}" class="place-order-form" data-mid="{% if data.mid_price is not None %}{{ data.mid_price }}{% endif %}"
+                    data-max-sell-sz="{% if data.order_max_sell.sz is not None %}{{ data.order_max_sell.sz }}{% endif %}"
+                    data-max-sell-unit="{{ data.order_max_sell.unit|default:'' }}"
+                    data-max-sell-unknown="{% if data.order_max_sell.sz is None %}1{% else %}0{% endif %}"
+                    data-perp-av="{% if data.perp_market_auto and data.perp_market_auto.account_value_usd is not None %}{{ data.perp_market_auto.account_value_usd }}{% endif %}"
+                    data-perp-symbol="{{ symbol }}">
+                    {% csrf_token %}
+                    {{ place_order_form.market_type }}
+                    {{ place_order_form.symbol }}
+                    <div class="row" style="gap:0.75rem">
+                        <div style="flex:1;min-width:0">
+                            <label for="id_side">{{ place_order_form.side.label }}</label>
+                            {{ place_order_form.side }}
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <label for="id_order_kind">{{ place_order_form.order_kind.label }}</label>
+                            {{ place_order_form.order_kind }}
+                        </div>
+                    </div>
+                    {% if market_type == "perp" %}
+                    <div class="perp-leverage-wrap" id="perp-leverage-wrap"
+                        data-lev-max="{% if data.perp_leverage and data.perp_leverage.max is not None %}{{ data.perp_leverage.max }}{% else %}125{% endif %}"
+                        data-lev-initial="{% if data.perp_leverage and data.perp_leverage.initial is not None %}{{ data.perp_leverage.initial }}{% else %}20{% endif %}">
+                        <span class="perp-leverage-label">leverage</span>
+                        <div class="perp-leverage-row">
+                            <input type="range" id="perp-leverage-slider" min="1" max="125" step="1" aria-valuemin="1" aria-valuemax="125" />
+                            <span id="perp-leverage-readout" aria-live="polite">—</span>
+                        </div>
+                        <p class="muted-note" style="font-size:0.72rem;margin:0.35rem 0 0;line-height:1.35">
+                            Max for instrument:
+                            {% if data.perp_leverage and data.perp_leverage.max is not None %}{{ data.perp_leverage.max }}×{% else %}—{% endif %}
+                            {% if data.perp_leverage and data.perp_leverage.only_isolated %}<span class="muted"> (isolated only)</span>{% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
+                    {{ place_order_form.leverage }}
+                    {% if market_type == "perp" %}
+                    <p id="perp-market-auto-hint" class="muted-note order-field-hidden" style="font-size:0.76rem;margin:0.45rem 0 0;line-height:1.45">
+                        <strong>Market:</strong> size and price are not entered — position uses full perp margin (account value) × leverage; estimate below uses mid.
+                    </p>
+                    {% endif %}
+                    <div id="order-field-sz">
+                        <label for="id_sz">{{ place_order_form.sz.label }}</label>
+                        {{ place_order_form.sz }}
+                    </div>
+                    <p id="order-max-sell-hint" class="muted-note" style="font-size:0.7rem;margin:0.25rem 0 0;line-height:1.35;opacity:0.92" aria-live="polite"></p>
+                    <p id="order-notional-estimate" class="muted-note" style="font-size:0.78rem;margin:0.35rem 0 0;line-height:1.4" aria-live="polite"></p>
+                    <div id="order-field-limit">
+                        <label for="id_limit_px">{{ place_order_form.limit_px.label }}</label>
+                        {{ place_order_form.limit_px }}
+                    </div>
+                    <button type="submit" class="btn-submit-order">Отправить ордер</button>
+                </form>
+            {% endif %}
+        </div>
+    </aside>
+</div>
+
+{% if hl_trading_key_configured %}
+<dialog id="perp-close-limit-dialog" class="trade-modal" aria-labelledby="perp-close-limit-title">
+    <h3 id="perp-close-limit-title">Закрытие по лимитному ордеру</h3>
+    <p class="muted-note" id="perp-close-limit-avail-hint" style="font-size:0.78rem;margin:0 0 0.75rem;line-height:1.4" aria-live="polite"></p>
+    <form method="post" action="{% url 'close_perp_limit' %}" class="hl-form" id="perp-close-limit-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <input type="hidden" name="coin" id="perp-close-limit-coin" value="">
+        <label for="perp-close-limit-px">Цена закрытия</label>
+        <input type="text" name="limit_px" id="perp-close-limit-px" inputmode="decimal" autocomplete="off" placeholder="0.0">
+        <label for="perp-close-limit-sz">Размер</label>
+        <input type="text" name="sz" id="perp-close-limit-sz" inputmode="decimal" autocomplete="off" placeholder="0.0">
+        <p style="margin:0.5rem 0 0;font-size:0.88rem">
+            <label for="perp-close-limit-full" style="display:inline-flex;align-items:center;gap:0.45rem;cursor:pointer;font-weight:400;margin:0;line-height:1.35">
+                <input type="checkbox" name="close_full" id="perp-close-limit-full" value="on">
+                <span>Закрыть полностью</span>
+            </label>
+        </p>
+        <div class="modal-actions">
+            <button type="button" class="btn secondary" id="perp-close-limit-cancel">Отмена</button>
+            <button type="submit" class="btn">Отправить</button>
+        </div>
     </form>
-    <a href="{% url 'deposit_request' %}" class="btn">Депозит</a>
-    <a href="{% url 'withdraw_request' %}" class="btn secondary">Вывод</a>
-    <a href="{% url 'wallet_select' %}" class="btn secondary">Сменить кошелёк</a>
-</div>
-
-{% if data.error %}
-<div class="card"><p class="muted">Ошибка Info API: {{ data.error }}</p></div>
+</dialog>
+<dialog id="perp-close-market-dialog" class="trade-modal" aria-labelledby="perp-close-market-title">
+    <h3 id="perp-close-market-title">Закрытие по рыночному ордеру</h3>
+    <p class="muted-note" id="perp-close-market-avail-hint" style="font-size:0.78rem;margin:0 0 0.75rem;line-height:1.4" aria-live="polite"></p>
+    <form method="post" action="{% url 'close_perp_market' %}" class="hl-form" id="perp-close-market-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <input type="hidden" name="coin" id="perp-close-market-coin" value="">
+        <label for="perp-close-market-sz">Размер</label>
+        <input type="text" name="sz" id="perp-close-market-sz" inputmode="decimal" autocomplete="off" placeholder="0.0">
+        <p style="margin:0.5rem 0 0;font-size:0.88rem">
+            <label for="perp-close-market-full" style="display:inline-flex;align-items:center;gap:0.45rem;cursor:pointer;font-weight:400;margin:0;line-height:1.35">
+                <input type="checkbox" name="close_full" id="perp-close-market-full" value="on">
+                <span>Закрыть полностью</span>
+            </label>
+        </p>
+        <div class="modal-actions">
+            <button type="button" class="btn secondary" id="perp-close-market-cancel">Отмена</button>
+            <button type="submit" class="btn">Отправить</button>
+        </div>
+    </form>
+</dialog>
 {% endif %}
-{% if data.errors_extra %}
-<div class="card"><p class="muted">Частичные ошибки: {{ data.errors_extra|join:"; " }}</p></div>
+
+{% if hl_trading_key_configured and has_spot_transfer_destinations %}
+<dialog id="spot-transfer-dialog" class="trade-modal" aria-labelledby="spot-transfer-title">
+    <h3 id="spot-transfer-title">Перевод спота</h3>
+    <p class="muted" id="spot-transfer-token-line" style="margin:0 0 0.75rem;font-size:0.9rem"></p>
+    <form method="post" action="{% url 'spot_token_transfer' %}" class="hl-form" id="spot-transfer-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        {{ spot_transfer_form.token_coin }}
+        <label for="id_spot-destination">{{ spot_transfer_form.destination.label }}</label>
+        {{ spot_transfer_form.destination }}
+        <label for="id_spot-amount">{{ spot_transfer_form.amount.label }}</label>
+        {{ spot_transfer_form.amount }}
+        <p class="muted-note" style="font-size:0.78rem;margin:0.35rem 0 0;line-height:1.4">Доступно к отправке (оценка): <span id="spot-transfer-avail-hint">—</span></p>
+        <div class="modal-actions">
+            <button type="button" class="btn secondary" id="spot-transfer-cancel">Отмена</button>
+            <button type="submit" class="btn" id="spot-transfer-submit">Отправить</button>
+        </div>
+    </form>
+</dialog>
 {% endif %}
+{% if hl_trading_key_configured %}
+<dialog id="usdc-transfer-dialog" class="trade-modal" aria-labelledby="usdc-transfer-title"
+    data-max-perp-to-spot="{% if data.usdc_snapshot.perp_withdrawable is not None %}{{ data.usdc_snapshot.perp_withdrawable }}{% elif data.usdc_snapshot.perp_usdc is not None %}{{ data.usdc_snapshot.perp_usdc }}{% endif %}"
+    data-max-spot-to-perp="{{ data.usdc_snapshot.spot_usdc|default_if_none:'' }}">
+    <h3 id="usdc-transfer-title">Перевод USDC</h3>
+    <form method="post" action="{% url 'usdc_class_transfer' %}" class="hl-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <label for="id_direction">{{ usdc_transfer_form.direction.label }}</label>
+        {{ usdc_transfer_form.direction }}
+        <label for="id_amount">{{ usdc_transfer_form.amount.label }}</label>
+        {{ usdc_transfer_form.amount }}
+        <p style="margin:0.5rem 0 0;font-size:0.88rem">
+            <label for="id_transfer_full" style="display:inline-flex;align-items:flex-start;gap:0.5rem;cursor:pointer;font-weight:400;margin:0;line-height:1.35">
+                {{ usdc_transfer_form.transfer_full }}
+                <span>{{ usdc_transfer_form.transfer_full.label }}</span>
+            </label>
+        </p>
+        <p class="muted-note" id="usdc-transfer-max-hint" style="font-size:0.78rem;margin:0.35rem 0 0;line-height:1.4" aria-live="polite"></p>
+        <div class="modal-actions">
+            <button type="button" class="btn secondary" id="usdc-transfer-cancel">Отмена</button>
+            <button type="submit" class="btn">Отправить</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var dlg = document.getElementById("usdc-transfer-dialog");
+  var openBtn = document.getElementById("usdc-transfer-open");
+  var cancelBtn = document.getElementById("usdc-transfer-cancel");
+  var usdcDir = document.getElementById("id_direction");
+  var usdcMaxHint = document.getElementById("usdc-transfer-max-hint");
+  var usdcAmt = document.getElementById("id_amount");
+  var usdcFull = document.getElementById("id_transfer_full");
+  function parseUsdcMax(raw) {
+    if (raw == null || String(raw).trim() === "") return NaN;
+    return parseFloat(String(raw).replace(",", ".").replace(/\s/g, ""));
+  }
+  function fmtUsdcMax(n) {
+    if (!isFinite(n)) return "—";
+    return (
+      n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " USDC"
+    );
+  }
+  function updateUsdcTransferMaxHint() {
+    if (!dlg || !usdcMaxHint || !usdcDir) return;
+    var perpToSpot = parseUsdcMax(dlg.getAttribute("data-max-perp-to-spot"));
+    var spotToPerp = parseUsdcMax(dlg.getAttribute("data-max-spot-to-perp"));
+    var dir = usdcDir.value;
+    if (dir === "perp_to_spot") {
+      usdcMaxHint.textContent =
+        "Максимум в этом направлении: " + fmtUsdcMax(perpToSpot);
+    } else if (dir === "spot_to_perp") {
+      usdcMaxHint.textContent =
+        "Максимум в этом направлении: " + fmtUsdcMax(spotToPerp);
+    } else {
+      usdcMaxHint.textContent = "";
+    }
+  }
+  function applyUsdcFullTransfer() {
+    if (!dlg || !usdcDir || !usdcAmt || !usdcFull) return;
+    if (usdcFull.checked) {
+      var dir = usdcDir.value;
+      var raw =
+        dir === "perp_to_spot"
+          ? dlg.getAttribute("data-max-perp-to-spot")
+          : dir === "spot_to_perp"
+            ? dlg.getAttribute("data-max-spot-to-perp")
+            : "";
+      var n = parseUsdcMax(raw);
+      if (isFinite(n) && n > 0) {
+        usdcAmt.value = String(n);
+      } else {
+        usdcAmt.value = "";
+      }
+      usdcAmt.readOnly = true;
+    } else {
+      usdcAmt.readOnly = false;
+    }
+  }
+  if (openBtn && dlg)
+    openBtn.addEventListener("click", function () {
+      if (usdcFull) usdcFull.checked = false;
+      if (usdcAmt) {
+        usdcAmt.value = "";
+        usdcAmt.readOnly = false;
+      }
+      dlg.showModal();
+      updateUsdcTransferMaxHint();
+    });
+  if (usdcDir && dlg)
+    usdcDir.addEventListener("change", function () {
+      updateUsdcTransferMaxHint();
+      applyUsdcFullTransfer();
+    });
+  if (usdcFull) usdcFull.addEventListener("change", applyUsdcFullTransfer);
+  if (cancelBtn && dlg) cancelBtn.addEventListener("click", function () { dlg.close(); });
+  var spotDlg = document.getElementById("spot-transfer-dialog");
+  var spotCancel = document.getElementById("spot-transfer-cancel");
+  if (spotCancel && spotDlg) spotCancel.addEventListener("click", function () { spotDlg.close(); });
+  document.querySelectorAll(".spot-transfer-open").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var coin = btn.getAttribute("data-coin") || "";
+      var avail = btn.getAttribute("data-available") || "";
+      var tokenInput = document.getElementById("id_spot-token_coin");
+      if (tokenInput) tokenInput.value = coin;
+      var line = document.getElementById("spot-transfer-token-line");
+      if (line) line.textContent = "Токен: " + coin;
+      var hint = document.getElementById("spot-transfer-avail-hint");
+      if (hint) hint.textContent = avail || "—";
+      var dest = document.getElementById("id_spot-destination");
+      var amt = document.getElementById("id_spot-amount");
+      if (dest) {
+        if (dest.tagName === "SELECT") dest.selectedIndex = 0;
+        else dest.value = "";
+      }
+      if (amt) amt.value = "";
+      if (spotDlg) spotDlg.showModal();
+    });
+  });
+  var spotForm = document.getElementById("spot-transfer-form");
+  if (spotForm) {
+    spotForm.addEventListener("submit", function () {
+      var btn = document.getElementById("spot-transfer-submit");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Отправка…";
+      }
+    });
+  }
+  var market = document.getElementById("market");
+  var symbol = document.getElementById("symbol");
+  var pairDisplay = document.getElementById("trade-pair-display");
+  var placeForm = document.querySelector("form.place-order-form");
+  if (!market || !symbol) return;
+  function syncList() {
+    var list = market.value === "perp" ? "perp-coins" : "spot-coins";
+    symbol.setAttribute("list", list);
+    if (pairDisplay) pairDisplay.textContent = (market.value === "perp" ? "PERP" : "SPOT") + " · " + (symbol.value || "—");
+  }
+  function syncPlaceOrderHiddens() {
+    if (!placeForm) return;
+    var mt = placeForm.querySelector('input[name="market_type"]');
+    var sy = placeForm.querySelector('input[name="symbol"]');
+    if (mt) mt.value = market.value === "spot" ? "spot" : "perp";
+    if (sy) sy.value = symbol.value.trim();
+  }
+  market.addEventListener("change", function () { syncList(); syncPlaceOrderHiddens(); });
+  symbol.addEventListener("input", function () { syncList(); syncPlaceOrderHiddens(); });
+  syncList();
+  syncPlaceOrderHiddens();
+  if (placeForm) placeForm.addEventListener("submit", syncPlaceOrderHiddens);
+})();
 
-<div class="card">
-    <h2>Mid-цена ({{ coin }})</h2>
-    {% if data.mid %}<p><strong>{{ data.mid }}</strong></p>{% else %}<p class="muted">Нет в allMids для этого coin.</p>{% endif %}
-</div>
+(function () {
+  var placeForm = document.querySelector("form.place-order-form");
+  var maxSellHint = document.getElementById("order-max-sell-hint");
+  var sideEl = document.getElementById("id_side");
+  var kindElSell = document.getElementById("id_order_kind");
+  if (!placeForm || !maxSellHint) return;
+  function updateOrderMaxSellHint() {
+    var mt = placeForm.querySelector('input[name="market_type"]');
+    var kindEl = document.getElementById("id_order_kind");
+    if (mt && mt.value === "perp" && kindEl && kindEl.value === "market") {
+      maxSellHint.textContent = "";
+      return;
+    }
+    if (sideEl && sideEl.value !== "sell") {
+      maxSellHint.textContent = "";
+      return;
+    }
+    var unknown = placeForm.getAttribute("data-max-sell-unknown") === "1";
+    var raw = placeForm.getAttribute("data-max-sell-sz");
+    var unit = placeForm.getAttribute("data-max-sell-unit") || "";
+    if (unknown) {
+      maxSellHint.textContent = "Макс. к продаже: —";
+      return;
+    }
+    var n = parseFloat(String(raw).replace(",", ".").replace(/\s/g, ""));
+    if (!isFinite(n)) {
+      maxSellHint.textContent = "Макс. к продаже: —";
+      return;
+    }
+    maxSellHint.textContent =
+      "Макс. к продаже: " +
+      n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 8 }) +
+      (unit ? " " + unit : "");
+  }
+  if (sideEl) sideEl.addEventListener("change", updateOrderMaxSellHint);
+  if (kindElSell) kindElSell.addEventListener("change", updateOrderMaxSellHint);
+  window.__updateOrderMaxSellHint = updateOrderMaxSellHint;
+  updateOrderMaxSellHint();
+})();
 
-<div class="card">
-    <h2>Спот-балансы (ненулевые)</h2>
-    {% if data.spot_balances %}
-        <table>
-            <thead><tr><th>Coin</th><th>Token</th><th>Balance</th><th>Hold</th><th>Entry Ntl</th></tr></thead>
-            <tbody>
-            {% for r in data.spot_balances %}
-                <tr>
-                    <td>{{ r.coin }}</td><td>{{ r.token }}</td><td>{{ r.total }}</td><td>{{ r.hold }}</td><td>{{ r.entry_ntl }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p class="muted">Нет ненулевых спот-балансов или данные недоступны.</p>
-    {% endif %}
-</div>
+(function () {
+  var placeForm = document.querySelector("form.place-order-form");
+  var out = document.getElementById("order-notional-estimate");
+  if (!placeForm || !out) return;
+  var szEl = placeForm.querySelector("#id_sz");
+  var kindEl = placeForm.querySelector("#id_order_kind");
+  var lxEl = placeForm.querySelector("#id_limit_px");
+  function fmtUsd(n) {
+    if (!isFinite(n)) return "";
+    return n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+  }
+  function tick() {
+    var mt = placeForm.querySelector('input[name="market_type"]');
+    var kind = kindEl ? kindEl.value : "";
+    var mid = parseFloat(placeForm.getAttribute("data-mid") || "");
+    if (mt && mt.value === "perp" && kind === "market") {
+      var av = parseFloat(placeForm.getAttribute("data-perp-av") || "");
+      var hid = document.getElementById("id_leverage");
+      var lev = hid ? parseInt(hid.value, 10) : NaN;
+      var sym = placeForm.getAttribute("data-perp-symbol") || "";
+      if (!isFinite(av) || av <= 0) {
+        out.textContent =
+          "No perp margin data — refresh the page or check your account.";
+        return;
+      }
+      if (!isFinite(mid) || mid <= 0) {
+        out.textContent =
+          "No mid for this pair — click Apply after selecting the instrument.";
+        return;
+      }
+      if (!isFinite(lev) || lev < 1) {
+        out.textContent = "";
+        return;
+      }
+      var notional = av * lev;
+      var szEst = notional / mid;
+      out.textContent =
+        "Estimate: notional ≈ " +
+        fmtUsd(notional) +
+        " USDC; size ≈ " +
+        szEst.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 8 }) +
+        (sym ? " " + sym : "") +
+        " (perp margin × leverage ÷ mid).";
+      return;
+    }
+    var rawSz = szEl && szEl.value ? String(szEl.value).replace(",", ".") : "";
+    var sz = parseFloat(rawSz);
+    if (!isFinite(sz) || sz <= 0) {
+      out.textContent = "";
+      return;
+    }
+    if (kind === "market") {
+      if (!isFinite(mid) || mid <= 0) {
+        out.textContent = "Номинал в USDC: нет mid для пары — нажмите «Применить» после выбора инструмента.";
+        return;
+      }
+      out.textContent =
+        "≈ " +
+        fmtUsd(sz * mid) +
+        " USDC (ориентир: size × mid; у market фактическая цена зависит от стакана и slippage).";
+      return;
+    }
+    var rawLx = lxEl && lxEl.value ? String(lxEl.value).replace(",", ".") : "";
+    var lx = parseFloat(rawLx);
+    if (!isFinite(lx) || lx <= 0) {
+      out.textContent = "Укажите цену лимита — покажем номинал в USDC (size × цена).";
+      return;
+    }
+    out.textContent = "≈ " + fmtUsd(sz * lx) + " USDC (size × лимитная цена).";
+  }
+  window.__tickPlaceOrderNotional = tick;
+  if (szEl) szEl.addEventListener("input", tick);
+  if (szEl) szEl.addEventListener("change", tick);
+  if (kindEl) kindEl.addEventListener("change", tick);
+  if (lxEl) lxEl.addEventListener("input", tick);
+  if (lxEl) lxEl.addEventListener("change", tick);
+  tick();
+})();
 
-<div class="card">
-    <h2>Перп: сводка</h2>
-    {% if data.perp_summary %}
-        <p>Account value: {{ data.perp_summary.account_value }} · Withdrawable: {{ data.perp_summary.withdrawable }} · Margin used: {{ data.perp_summary.total_margin_used }}</p>
-    {% else %}
-        <p class="muted">Нет данных clearinghouse.</p>
-    {% endif %}
-    <h2>Позиции</h2>
-    {% if data.perp_positions %}
-        <table>
-            <thead><tr><th>Coin</th><th>Size</th><th>Entry</th><th>Value</th><th>uPnL</th></tr></thead>
-            <tbody>
-            {% for p in data.perp_positions %}
-                <tr>
-                    <td>{{ p.coin }}</td><td>{{ p.szi }}</td><td>{{ p.entry_px }}</td><td>{{ p.position_value }}</td><td>{{ p.unrealized_pnl }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p class="muted">Нет открытых перп-позиций.</p>
-    {% endif %}
-</div>
+(function () {
+  var placeForm = document.querySelector("form.place-order-form");
+  function syncPerpOrderLayout() {
+    if (!placeForm) return;
+    var mt = placeForm.querySelector('input[name="market_type"]');
+    var kindEl = document.getElementById("id_order_kind");
+    var szWrap = document.getElementById("order-field-sz");
+    var limWrap = document.getElementById("order-field-limit");
+    var hint = document.getElementById("perp-market-auto-hint");
+    var pm = mt && mt.value === "perp" && kindEl && kindEl.value === "market";
+    if (szWrap) szWrap.classList.toggle("order-field-hidden", !!pm);
+    if (limWrap) limWrap.classList.toggle("order-field-hidden", !!pm);
+    if (hint) hint.classList.toggle("order-field-hidden", !pm);
+    if (pm) {
+      var szEl = placeForm.querySelector("#id_sz");
+      if (szEl) szEl.value = "";
+    }
+    if (window.__tickPlaceOrderNotional) window.__tickPlaceOrderNotional();
+    if (window.__updateOrderMaxSellHint) window.__updateOrderMaxSellHint();
+  }
+  window.__syncPerpOrderLayout = syncPerpOrderLayout;
+  var wrap = document.getElementById("perp-leverage-wrap");
+  var slider = document.getElementById("perp-leverage-slider");
+  var readout = document.getElementById("perp-leverage-readout");
+  var hidden = document.getElementById("id_leverage");
+  if (wrap && slider && hidden) {
+    var mx = parseInt(wrap.getAttribute("data-lev-max") || "125", 10);
+    if (!isFinite(mx) || mx < 1) mx = 125;
+    slider.min = "1";
+    slider.max = String(mx);
+    slider.setAttribute("aria-valuemax", String(mx));
+    function syncPerpLev() {
+      var v = parseInt(slider.value, 10);
+      if (!isFinite(v)) v = 1;
+      if (v > mx) v = mx;
+      if (v < 1) v = 1;
+      slider.value = String(v);
+      hidden.value = String(v);
+      if (readout) readout.textContent = v + "×";
+      if (window.__tickPlaceOrderNotional) window.__tickPlaceOrderNotional();
+    }
+    var init = parseInt(wrap.getAttribute("data-lev-initial") || hidden.value || "20", 10);
+    if (!isFinite(init) || init < 1) init = 1;
+    if (init > mx) init = mx;
+    slider.value = String(init);
+    hidden.value = String(init);
+    syncPerpLev();
+    slider.addEventListener("input", syncPerpLev);
+  }
+  var kindEl0 = document.getElementById("id_order_kind");
+  if (kindEl0) kindEl0.addEventListener("change", syncPerpOrderLayout);
+})();
 
-<div class="card">
-    <h2>Открытые ордера</h2>
-    {% if data.open_orders %}
-        <table>
-            <thead><tr><th>Coin</th><th>Side</th><th>Limit</th><th>Size</th><th>OID</th></tr></thead>
-            <tbody>
-            {% for o in data.open_orders %}
-                <tr><td>{{ o.coin }}</td><td>{{ o.side }}</td><td>{{ o.limit_px }}</td><td>{{ o.sz }}</td><td>{{ o.oid }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p class="muted">Нет открытых ордеров.</p>
-    {% endif %}
-</div>
+(function () {
+  if (window.__syncPerpOrderLayout) window.__syncPerpOrderLayout();
+})();
 
-<div class="card">
-    <h2>Стакан L2 (фрагмент)</h2>
-    <p class="muted">Данные l2Book для <code>{{ coin }}</code> — ниже сырые уровни (если рынок существует).</p>
-    <pre style="overflow:auto;max-height:200px;font-size:0.75rem">{{ data.l2_book|default:"—" }}</pre>
-</div>
+(function () {
+  var limitDlg = document.getElementById("perp-close-limit-dialog");
+  var marketDlg = document.getElementById("perp-close-market-dialog");
+  if (!limitDlg || !marketDlg) return;
 
-<div class="card">
-    <h2>Свечи (последние строки в таблицу)</h2>
-    <p class="muted">Источник candleSnapshot, интервал 1h, ~7 дней назад.</p>
-    {% if candle_rows %}
-        <table>
-            <thead><tr><th>Время (ms)</th><th>O</th><th>H</th><th>L</th><th>C</th><th>Vol</th></tr></thead>
-            <tbody>
-            {% for c in candle_rows %}
-                <tr>
-                    <td>{{ c.time_ms }}</td><td>{{ c.open }}</td><td>{{ c.high }}</td><td>{{ c.low }}</td><td>{{ c.close }}</td><td>{{ c.volume }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p class="muted">Нет свечей или неверный coin.</p>
-    {% endif %}
-</div>
+  function bindFull(dlg, szId, fullId) {
+    var sz = document.getElementById(szId);
+    var full = document.getElementById(fullId);
+    if (!sz || !full) return;
+    full.addEventListener("change", function () {
+      var abs = (dlg.dataset.absSize || "").trim();
+      if (full.checked && abs) {
+        sz.value = abs;
+        sz.readOnly = true;
+      } else {
+        sz.readOnly = false;
+      }
+    });
+  }
+  bindFull(limitDlg, "perp-close-limit-sz", "perp-close-limit-full");
+  bindFull(marketDlg, "perp-close-market-sz", "perp-close-market-full");
 
-<div class="card">
-    <h2>Ордера Market / Limit</h2>
-    <p class="muted">Размещение ордеров на Hyperliquid требует подписи L1 (как в <code>hyperliquid_account.place_order</code>). Подключение кошелька в браузере и подпись — следующий этап интеграции.</p>
-    <p><button type="button" disabled class="secondary">Market (демо)</button>
-    <button type="button" disabled class="secondary">Limit (демо)</button></p>
-</div>
+  function setPerpCloseAvailHint(el, coin, absRaw) {
+    if (!el) return;
+    var abs = (absRaw || "").trim();
+    if (!abs) {
+      el.textContent = "Доступно к закрытию: —";
+      return;
+    }
+    var n = parseFloat(String(abs).replace(",", ".").replace(/\s/g, ""));
+    if (!isFinite(n)) {
+      el.textContent = "Доступно к закрытию: " + abs + (coin ? " " + coin : "");
+      return;
+    }
+    el.textContent =
+      "Доступно к закрытию: " +
+      n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 8 }) +
+      (coin ? " " + coin : "");
+  }
+
+  document.querySelectorAll(".perp-close-limit-open").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var coin = btn.getAttribute("data-coin") || "";
+      var abs = btn.getAttribute("data-abs") || "";
+      limitDlg.dataset.absSize = abs;
+      setPerpCloseAvailHint(
+        document.getElementById("perp-close-limit-avail-hint"),
+        coin,
+        abs
+      );
+      var c = document.getElementById("perp-close-limit-coin");
+      if (c) c.value = coin;
+      var sz = document.getElementById("perp-close-limit-sz");
+      var px = document.getElementById("perp-close-limit-px");
+      var full = document.getElementById("perp-close-limit-full");
+      if (sz) {
+        sz.value = "";
+        sz.readOnly = false;
+      }
+      if (px) px.value = "";
+      if (full) full.checked = false;
+      limitDlg.showModal();
+    });
+  });
+  document.querySelectorAll(".perp-close-market-open").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var coin = btn.getAttribute("data-coin") || "";
+      var abs = btn.getAttribute("data-abs") || "";
+      marketDlg.dataset.absSize = abs;
+      setPerpCloseAvailHint(
+        document.getElementById("perp-close-market-avail-hint"),
+        coin,
+        abs
+      );
+      var c = document.getElementById("perp-close-market-coin");
+      if (c) c.value = coin;
+      var sz = document.getElementById("perp-close-market-sz");
+      var full = document.getElementById("perp-close-market-full");
+      if (sz) {
+        sz.value = "";
+        sz.readOnly = false;
+      }
+      if (full) full.checked = false;
+      marketDlg.showModal();
+    });
+  });
+  var lc = document.getElementById("perp-close-limit-cancel");
+  if (lc) lc.addEventListener("click", function () { limitDlg.close(); });
+  var mc = document.getElementById("perp-close-market-cancel");
+  if (mc) mc.addEventListener("click", function () { marketDlg.close(); });
+})();
+</script>
 {% endblock %}

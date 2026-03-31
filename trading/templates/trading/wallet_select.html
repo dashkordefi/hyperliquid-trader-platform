@@ -12,18 +12,39 @@
             <label for="wallet_id">Активный кошелёк</label>
             <select name="wallet_id" id="wallet_id">
                 {% for w in wallets %}
-                    <option value="{{ w.pk }}">{{ w.label }} — {{ w.address }}</option>
+                    <option value="{{ w.pk }}" {% if w.pk == active_wallet_id %}selected{% endif %}>{{ w.label }} — {{ w.address }}</option>
                 {% endfor %}
             </select>
             <p style="margin-top:0.75rem"><button type="submit">Перейти к торговле</button></p>
         </form>
+        <ul class="muted" style="margin-top:1rem;padding-left:1.25rem">
+            {% for w in wallets %}
+                <li>
+                    <a href="{% url 'wallet_detail' w.pk %}">{{ w.label }}</a>
+                    — <code style="font-size:0.85rem">{{ w.address }}</code>
+                    — <span class="muted">просмотр / удалить</span>
+                </li>
+            {% endfor %}
+        </ul>
     {% else %}
-        <p class="muted">Добавьте хотя бы один именованный кошелёк ниже.</p>
+        <p class="muted">Создайте кошелёк ниже — он появится в этом списке.</p>
     {% endif %}
 </div>
 
 <div class="card">
-    <h2>Добавить кошелёк</h2>
+    <h2>Создать кошелёк</h2>
+    <p class="muted" style="margin:0 0 0.75rem;font-size:0.9rem">Укажите только название. Адрес и ключ генерируются автоматически; приватный ключ сохраняется в базе в зашифрованном виде и не показывается.</p>
+    <form method="post">{% csrf_token %}
+        <input type="hidden" name="create_wallet" value="1">
+        <label for="id_create-label">{{ create_form.label.label }}</label>
+        {{ create_form.label }}
+        <p style="margin-top:0.75rem"><button type="submit">Создать кошелёк</button></p>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Добавить существующий кошелёк</h2>
+    <p class="muted" style="margin:0 0 0.75rem;font-size:0.9rem">Если адрес уже есть — не создавайте дубликат. Параметры после добавления не меняются; нужен другой ключ или название — удалите запись и добавьте заново.</p>
     <form method="post">{% csrf_token %}
         <input type="hidden" name="add_wallet" value="1">
         {{ form.as_p }}

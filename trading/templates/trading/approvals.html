@@ -1,4 +1,5 @@
 {% extends "trading/base.html" %}
+{% load trading_extras %}
 {% block title %}Согласования{% endblock %}
 {% block content %}
 <h1>Заявки на депозит и вывод</h1>
@@ -11,6 +12,17 @@
     {% if r.note %}<p>Комментарий: {{ r.note }}</p>{% endif %}
     <p>Compliance: {% if r.compliance_approved_at %}✓ {{ r.compliance_approved_at }} ({{ r.compliance_approved_by }}){% else %}—{% endif %}</p>
     <p>Middle office: {% if r.middleoffice_approved_at %}✓ {{ r.middleoffice_approved_at }} ({{ r.middleoffice_approved_by }}){% else %}—{% endif %}</p>
+    {% if r.executed_at %}<p class="muted">Исполнено: {{ r.executed_at }}</p>{% endif %}
+    {% if r.blockchain_tx_hash %}
+        {% with txurl=r|funds_tx_explorer_url:hl_network_testnet %}
+            {% if txurl %}
+                <p><a href="{{ txurl }}" target="_blank" rel="noopener noreferrer">Транзакция в блокчейне</a>
+                <span class="muted">({{ r.blockchain_tx_hash }})</span></p>
+            {% else %}
+                <p class="muted">Tx: {{ r.blockchain_tx_hash }}</p>
+            {% endif %}
+        {% endwith %}
+    {% endif %}
     <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap">
         {% if is_compliance %}
         <form method="post" action="{% url 'approval_action' r.pk %}">{% csrf_token %}

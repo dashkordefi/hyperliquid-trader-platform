@@ -1,0 +1,62 @@
+{% extends "trading/base.html" %}
+{% block title %}История сделок — {{ wallet.label }}{% endblock %}
+{% block content %}
+<h1>История сделок</h1>
+<p class="muted">
+    Кошелёк: <strong>{{ wallet.label }}</strong>
+    · <code>{{ wallet.address }}</code>
+    · <a href="{% url 'dashboard' %}">← Торговля</a>
+</p>
+
+{% if data.error %}
+<div class="card" style="border-color: var(--warn)">
+    <p><strong>Не удалось загрузить историю:</strong> {{ data.error }}</p>
+</div>
+{% else %}
+<p class="muted" style="font-size: 0.85rem; margin-bottom: 1rem;">
+    Данные с Hyperliquid API (<code>userFills</code>). Обычно доступны последние тысячи исполнений; точные лимиты см. в документации HL.
+</p>
+<div class="card" style="overflow-x: auto;">
+    {% if data.rows %}
+    <table>
+        <thead>
+            <tr>
+                <th>Время (UTC)</th>
+                <th>Инструмент</th>
+                <th>Сторона</th>
+                <th>Цена</th>
+                <th>Размер</th>
+                <th>Комиссия</th>
+                <th>Токен комиссии</th>
+                <th>Направление</th>
+                <th>Closed PnL</th>
+                <th>OID</th>
+                <th>Crossed</th>
+                <th>TID</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data.rows %}
+            <tr>
+                <td>{{ row.time_display }}</td>
+                <td>{{ row.coin }}</td>
+                <td>{{ row.side }}</td>
+                <td>{{ row.px }}</td>
+                <td>{{ row.sz }}</td>
+                <td>{{ row.fee }}</td>
+                <td>{{ row.fee_token }}</td>
+                <td>{{ row.dir }}</td>
+                <td>{{ row.closed_pnl }}</td>
+                <td>{{ row.oid }}</td>
+                <td>{{ row.crossed }}</td>
+                <td>{{ row.tid }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Пока нет исполнений для этого кошелька на выбранной сети.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

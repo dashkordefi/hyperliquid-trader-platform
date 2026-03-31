@@ -67,6 +67,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "trading.middleware.HyperliquidNetworkMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -85,6 +86,8 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "trading.context_processors.roles",
+                "trading.context_processors.funds_operation_feed",
+                "trading.context_processors.hyperliquid_network",
             ],
         },
     },
@@ -148,6 +151,59 @@ if not DEBUG:
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Подпись ордеров HL: только env, не ввод в браузере. Совпадает с HYPERLIQUID_PRIVATE_KEY в hyperliquid_account.
+HYPERLIQUID_TRADING_PRIVATE_KEY = (
+    os.environ.get("HYPERLIQUID_TRADING_PRIVATE_KEY", "").strip()
+    or os.environ.get("HYPERLIQUID_PRIVATE_KEY", "").strip()
+)
+
+# Testnet: export HYPERLIQUID_USE_TESTNET=true — тот же ключ, что и для app.hyperliquid-testnet (Arbitrum Sepolia).
+HYPERLIQUID_USE_TESTNET = os.environ.get("HYPERLIQUID_USE_TESTNET", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+HYPERLIQUID_MAINNET_INFO_URL = os.environ.get(
+    "HYPERLIQUID_MAINNET_INFO_URL",
+    "https://api.hyperliquid.xyz/info",
+)
+HYPERLIQUID_TESTNET_INFO_URL = os.environ.get(
+    "HYPERLIQUID_TESTNET_INFO_URL",
+    "https://api.hyperliquid-testnet.xyz/info",
+)
+# Обратная совместимость: один HYPERLIQUID_INFO_URL — для сети по умолчанию из env.
+_legacy_hl_info = os.environ.get("HYPERLIQUID_INFO_URL", "").strip()
+if _legacy_hl_info:
+    if HYPERLIQUID_USE_TESTNET:
+        HYPERLIQUID_TESTNET_INFO_URL = _legacy_hl_info
+    else:
+        HYPERLIQUID_MAINNET_INFO_URL = _legacy_hl_info
+HYPERLIQUID_INFO_URL = (
+    HYPERLIQUID_TESTNET_INFO_URL
+    if HYPERLIQUID_USE_TESTNET
+    else HYPERLIQUID_MAINNET_INFO_URL
+)
+
+# RPC для проверки FinalizedWithdrawal (Bridge2) при выводе USDC→Arbitrum.
+ARBITRUM_ONE_RPC_URL = os.environ.get(
+    "ARBITRUM_ONE_RPC_URL",
+    "https://arb1.arbitrum.io/rpc",
+)
+ARBITRUM_SEPOLIA_RPC_URL = os.environ.get(
+    "ARBITRUM_SEPOLIA_RPC_URL",
+    "https://sepolia-rollup.arbitrum.io/rpc",
+)
+
+# Депозит ETH через Unit (Ethereum L1): spotSend / deposit_eth в hyperliquid_account.
+ETHEREUM_MAINNET_RPC_URL = os.environ.get(
+    "ETHEREUM_MAINNET_RPC_URL",
+    "https://eth.llamarpc.com",
+)
+ETHEREUM_SEPOLIA_RPC_URL = os.environ.get(
+    "ETHEREUM_SEPOLIA_RPC_URL",
+    "https://rpc.sepolia.org",
+)
 
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"

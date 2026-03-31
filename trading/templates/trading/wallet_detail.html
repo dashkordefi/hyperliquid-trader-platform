@@ -1,0 +1,22 @@
+{% extends "trading/base.html" %}
+{% block title %}Кошелёк — {{ wallet.label }}{% endblock %}
+{% block content %}
+<h1>Кошелёк</h1>
+<p class="muted">Название, адрес и ключ задаются только при создании записи. Изменить нельзя — при необходимости удалите кошелёк и добавьте заново.</p>
+
+<div class="card">
+    <p><strong>Название:</strong> {{ wallet.label }}</p>
+    <p><strong>Адрес:</strong> <code>{{ wallet.address }}</code></p>
+    <p class="muted" style="font-size:0.85rem">Создан: {{ wallet.created_at }}</p>
+    <p><a href="{% url 'wallet_select' %}">← К списку кошельков</a></p>
+</div>
+
+<div class="card" style="border-color:#da3633">
+    <h2>Удалить кошелёк</h2>
+    <p class="muted">Запись кошелька и сохранённый ключ будут удалены из базы. Связанные заявки на депозит/вывод (если есть) удалятся вместе с кошельком.</p>
+    <form method="post" action="{% url 'wallet_delete' wallet.pk %}" onsubmit="return confirm('Удалить кошелёк «{{ wallet.label|escapejs }}» из базы?');">
+        {% csrf_token %}
+        <button type="submit" class="danger">Удалить из базы</button>
+    </form>
+</div>
+{% endblock %}
