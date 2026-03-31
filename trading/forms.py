@@ -301,6 +301,10 @@ class FundsOperationForm(forms.Form):
                     "Для депозита USDC через bridge Hyperliquid на Arbitrum минимум 5 USDC "
                     "(меньшие суммы контракт не зачисляет)."
                 )
+            if route == "eth_ethereum" and amt < Decimal("0.007"):
+                raise forms.ValidationError(
+                    "Для депозита ETH через Unit минимум ~0,007 ETH (как в Hyperliquid)."
+                )
             return cleaned
 
         if cleaned.get("withdraw_all"):

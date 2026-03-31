@@ -9,7 +9,8 @@
     <strong>Как это работает:</strong> заявка → согласования compliance и middle office →
     <strong>сервер подписывает транзакцию</strong> ключом кошелька (ключ должен быть сохранён в карточке кошелька)
     и отправляет перевод на контракт bridge Hyperliquid (USDC на Arbitrum) или на Unit-адрес (ETH на Ethereum), в зависимости от способа.
-    Минимум для USDC через bridge — <strong>5 USDC</strong>.
+    Минимум для USDC через bridge — <strong>5 USDC</strong>;
+    для ETH на Ethereum (Unit) — <strong>~0,007 ETH</strong>.
     {% if hl_network_testnet %}
     <span class="muted">(Testnet: Arbitrum Sepolia / Sepolia ETH.)</span>
     {% endif %}
