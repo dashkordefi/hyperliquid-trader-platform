@@ -1,10 +1,10 @@
 from django.contrib import messages
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import Group
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db import transaction
 from django.shortcuts import redirect, render
 
-from .forms import PersonRecordForm
+from .forms import PersonRecordForm, RegistrationForm
 from .models import PersonRecord
 
 
@@ -54,17 +54,18 @@ def register(request):
         return redirect("home")
 
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = RegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            traders_group, _ = Group.objects.get_or_create(name="traders")
-            user.groups.add(traders_group)
+            with transaction.atomic():
+                user = form.save()
+                traders_group, _ = Group.objects.get_or_create(name="traders")
+                user.groups.add(traders_group)
             messages.success(
                 request,
                 "Пользователь зарегистрирован. Войдите в систему.",
             )
             return redirect("login")
     else:
-        form = UserCreationForm()
+        form = RegistrationForm()
 
     return render(request, "registration/register.html", {"form": form})
