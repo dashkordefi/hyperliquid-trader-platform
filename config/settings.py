@@ -56,47 +56,88 @@ if _ext and _ext not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_ext)
 if not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# Локально часто в env только «localhost» → 127.0.0.1 даёт 400 DisallowedHost.
+if DEBUG:
+    for _h in ("127.0.0.1", "localhost", "[::1]"):
+        if _h not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_h)
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
+    origin.strip().rstrip("/")
     for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
 ]
+
+
+def _add_csrf_origin(origins: list, value: str) -> None:
+    v = (value or "").strip().rstrip("/")
+    if v and v not in origins:
+        origins.append(v)
+
+
+# Полный URL сервиса (Render / свой домен) — origin со схемой и портом, если есть.
+for _url_key in (
+    "PUBLIC_URL",
+    "SITE_URL",
+    "RENDER_SERVICE_URL",
+    "RENDER_EXTERNAL_URL",
+):
+    _raw = os.environ.get(_url_key, "").strip()
+    if not _raw:
+        continue
+    _p = urlparse(_raw if "://" in _raw else f"https://{_raw}")
+    if _p.scheme and _p.netloc:
+        _add_csrf_origin(CSRF_TRUSTED_ORIGINS, f"{_p.scheme}://{_p.netloc}")
+
 # Django 4+: заголовок Origin при POST должен совпадать с одним из доверенных origin.
 if _ext:
     _https_origin = f"https://{_ext}"
-    if _https_origin not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(_https_origin)
+    _add_csrf_origin(CSRF_TRUSTED_ORIGINS, _https_origin)
 for _dev in (
     "http://127.0.0.1:8000",
     "http://localhost:8000",
     "http://127.0.0.1:8001",
     "http://localhost:8001",
+    "http://[::1]:8000",
+    "http://[::1]:8001",
     "http://127.0.0.1:8080",
     "http://localhost:8080",
     "http://127.0.0.1:5000",
     "http://localhost:5000",
-    "http://[::1]:8000",
     "http://localhost:3000",
     "https://127.0.0.1:8000",
     "https://localhost:8000",
 ):
-    if _dev not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(_dev)
+    _add_csrf_origin(CSRF_TRUSTED_ORIGINS, _dev)
+
+# Локально: любой порт runserver 8000–8020 (частая причина 403 CSRF).
+if DEBUG:
+    for _port in range(8000, 8021):
+        for _host in ("127.0.0.1", "localhost", "[::1]"):
+            _add_csrf_origin(CSRF_TRUSTED_ORIGINS, f"http://{_host}:{_port}")
+            _add_csrf_origin(CSRF_TRUSTED_ORIGINS, f"https://{_host}:{_port}")
 
 # Каждый хост из ALLOWED_HOSTS — с http и https (без порта; для нестандартного порта задайте CSRF_TRUSTED_ORIGINS).
 for _h in list(ALLOWED_HOSTS):
     if not _h or _h == "*" or _h.startswith("."):
         continue
     for _scheme in ("http://", "https://"):
-        _o = f"{_scheme}{_h}"
-        if _o not in CSRF_TRUSTED_ORIGINS:
-            CSRF_TRUSTED_ORIGINS.append(_o)
+        _add_csrf_origin(CSRF_TRUSTED_ORIGINS, f"{_scheme}{_h}")
 
 if _render:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Включайте только если за прокси ломается Host; иначе X-Forwarded-Host иногда даёт несовпадение с Origin → 403 CSRF.
 if os.environ.get("USE_X_FORWARDED_HOST", "").lower() in ("true", "1", "yes"):
     USE_X_FORWARDED_HOST = True
+
+# Secure-cookies только за реальным HTTPS (Render / свой прокси). Если включить при DEBUG=False
+# на http://localhost, браузер не шлёт cookie → «не открывается», 403 CSRF, нет сессии.
+_use_secure_cookies = _render or os.environ.get(
+    "FORCE_SECURE_COOKIES", ""
+).lower() in ("true", "1", "yes")
+CSRF_COOKIE_SECURE = _use_secure_cookies
+SESSION_COOKIE_SECURE = _use_secure_cookies
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 
 
 # Application definition
