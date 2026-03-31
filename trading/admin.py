@@ -1,18 +1,25 @@
 from django.contrib import admin
+from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 
 from .models import FundsOperationRequest, TraderWallet
 
-# Переопределяем админку пользователя: удобный выбор групп (ролей) при создании аккаунтов.
+# Переопределяем админку пользователя: выбор групп (ролей) без тяжёлого filter_horizontal.
 admin.site.unregister(User)
+admin.site.unregister(Group)
+
+
+@admin.register(Group)
+class GroupAdmin(DjangoGroupAdmin):
+    """Как в django.contrib.auth (в т.ч. permissions группы); нужен для autocomplete_fields у User.groups."""
+    pass
 
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    # Только группы — удобный выбор ролей (approvers). user_permissions через
-    # filter_horizontal на Render часто даёт 500 при сохранении (память/объём формы).
-    filter_horizontal = ("groups",)
+    # Autocomplete по группам — легче, чем filter_horizontal на слабом хостинге (меньше 500).
+    autocomplete_fields = ("groups",)
     list_display = (
         "username",
         "email",
