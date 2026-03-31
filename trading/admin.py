@@ -1,18 +1,48 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import User
+from django.utils.translation import gettext_lazy as _
 
 from .models import FundsOperationRequest, TraderWallet
 
-# Переопределяем админку пользователя: группы через raw_id (минимальный виджет).
-# filter_horizontal / autocomplete тянут тяжёлые шаблоны; на Python 3.14 + Django 4.2
-# при рендере /admin/auth/user/add/ возможны падения в RequestContext (Render).
+# Своя админка пользователя: группы через filter_vertical — два списка «доступно / выбрано»,
+# без raw_id (неочевидно) и без filter_horizontal(user_permissions) (тяжело на Render).
 admin.site.unregister(User)
 
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
-    raw_id_fields = ("groups",)
+    filter_vertical = ("groups",)
+
+    fieldsets = (
+        (None, {"fields": ("username", "password")}),
+        (_("Личные данные"), {"fields": ("first_name", "last_name", "email")}),
+        (
+            _("Роли и флаги"),
+            {
+                "fields": (
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                ),
+                "description": _(
+                    "Роли согласования: выберите группы в левом списке и кнопками со стрелками "
+                    "перенесите в правый список. Нужны группы compliance_approver и "
+                    "middleoffice_approver (создаются миграцией init_role_groups)."
+                ),
+            },
+        ),
+        (
+            _("Отдельные права по моделям"),
+            {
+                "fields": ("user_permissions",),
+                "classes": ("collapse",),
+            },
+        ),
+        (_("Даты"), {"fields": ("last_login", "date_joined")}),
+    )
+
     list_display = (
         "username",
         "email",
