@@ -32,10 +32,12 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
+# Пустая строка в env (ALLOWED_HOSTS=) подставляет "" вместо default → список хостов пустой → падение/400.
+_allowed_raw = os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost")
+if not str(_allowed_raw).strip():
+    _allowed_raw = "127.0.0.1,localhost"
 ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
-    if host.strip()
+    host.strip() for host in str(_allowed_raw).split(",") if host.strip()
 ]
 _render = os.environ.get("RENDER", "").lower() in ("true", "1", "yes")
 # На Render: RENDER_EXTERNAL_HOSTNAME=xxx.onrender.com; если пусто — пробуем RENDER_SERVICE_URL (https://…onrender.com).
@@ -52,6 +54,8 @@ if not _ext and _render:
                 break
 if _ext and _ext not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_ext)
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
@@ -255,3 +259,25 @@ ETHEREUM_SEPOLIA_RPC_URL = os.environ.get(
 
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+# Логи в stdout/stderr — в Render → Logs видно traceback при 500.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.environ.get("LOG_LEVEL", "INFO"),
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
