@@ -1,15 +1,14 @@
-import logging
-
-from .arbitrum_withdrawal import try_finalize_usdc_withdrawals_for_wallet
 from .hl_network import hl_testnet_enabled
 from .models import FundsOperationRequest, TraderWallet
-
-logger = logging.getLogger(__name__)
 
 
 def funds_operation_feed(request):
     """
-    Баннер при выводе USDC→Arbitrum до появления tx в сети. FinalizedWithdrawal — по каждому кошельку.
+    Баннер при выводе USDC→Arbitrum до появления tx в сети.
+
+    Скан FinalizedWithdrawal по RPC (eth_getLogs) не выполняется здесь: он блокирует
+    воркер Gunicorn на минуты и даёт WORKER TIMEOUT. Обновление executed_at — через
+    management command finalize_arbitrum_withdrawals (cron на Render).
     """
     out = {
         "funds_bridge_banner_ops": None,
@@ -19,14 +18,8 @@ def funds_operation_feed(request):
     g = set(request.user.groups.values_list("name", flat=True))
     if not (request.user.is_superuser or "traders" in g):
         return out
-    wallets = list(TraderWallet.objects.filter(user=request.user).order_by("label"))
-    if not wallets:
+    if not TraderWallet.objects.filter(user=request.user).exists():
         return out
-    for w in wallets:
-        try:
-            try_finalize_usdc_withdrawals_for_wallet(w)
-        except Exception as e:
-            logger.warning("Проверка FinalizedWithdrawal на Arbitrum: %s", e)
     # Баннер: USDC уже ушёл с HL, ожидаем FinalizedWithdrawal на Bridge2 (пропадает после tx в сети).
     out["funds_bridge_banner_ops"] = list(
         FundsOperationRequest.objects.filter(
