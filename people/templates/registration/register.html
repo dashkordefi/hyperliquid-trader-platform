@@ -1,22 +1,84 @@
-<!doctype html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Регистрация</title>
-</head>
-<body>
-    <h1>Регистрация пользователя</h1>
-
+{% extends "trading/base.html" %}
+{% block title %}Регистрация — HL Trader{% endblock %}
+{% block main_class %}auth-page{% endblock %}
+{% block extra_css %}
+<style>
+    main.auth-page {
+        max-width: none;
+        min-height: calc(100vh - 3.5rem);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.25rem;
+    }
+    main.auth-page .messages {
+        width: 100%;
+        max-width: 400px;
+        margin-bottom: 1rem;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 400px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.75rem 1.5rem;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+    .auth-card h1 {
+        margin: 0 0 1.25rem;
+        text-align: center;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    .auth-card form p { margin: 0; }
+    .auth-card form label {
+        display: block;
+        margin-top: 1rem;
+        margin-bottom: 0.25rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+    }
+    .auth-card form p:first-child label { margin-top: 0; }
+    .auth-card input {
+        max-width: 100%;
+        width: 100%;
+    }
+    .auth-card ul.errorlist {
+        margin: 0 0 0.75rem;
+        padding: 0.5rem 0.75rem;
+        list-style: none;
+        border-radius: 6px;
+        background: rgba(218, 54, 51, 0.12);
+        border: 1px solid rgba(218, 54, 51, 0.35);
+        color: #f85149;
+        font-size: 0.85rem;
+    }
+    .auth-card button[type="submit"] {
+        width: 100%;
+        margin-top: 1.35rem;
+        padding: 0.55rem 1rem;
+    }
+    .auth-footer {
+        margin: 1.25rem 0 0;
+        text-align: center;
+        font-size: 0.9rem;
+        color: var(--muted);
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="auth-card">
+    <h1>Регистрация</h1>
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Зарегистрироваться</button>
+        <button type="submit" class="btn">Зарегистрироваться</button>
     </form>
-
-    <p>
+    <p class="auth-footer">
         Уже есть аккаунт?
         <a href="{% url 'login' %}">Войти</a>
     </p>
-</body>
-</html>
+</div>
+{% endblock %}

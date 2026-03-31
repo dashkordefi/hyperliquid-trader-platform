@@ -13,7 +13,8 @@ def health(_request):
 urlpatterns = [
     path("health/", health, name="health"),
     path("admin/", admin.site.urls),
-    path("accounts/", include("django.contrib.auth.urls")),
+    # До include(auth): иначе «register/» уходит в auth.urls и даёт 404.
     path("accounts/register/", register, name="register"),
+    path("accounts/", include("django.contrib.auth.urls")),
     path("", include("trading.urls")),
 ]

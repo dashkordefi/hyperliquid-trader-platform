@@ -171,16 +171,6 @@
     table.perp-positions-table tbody tr.perp-pos-short:hover td {
         color: #f85149;
     }
-    .trade-testnet-banner {
-        margin: 0 0 1rem;
-        padding: 0.55rem 0.9rem;
-        border-radius: 8px;
-        border: 1px solid var(--warn);
-        background: rgba(210, 153, 34, 0.1);
-        font-size: 0.88rem;
-        color: var(--text);
-    }
-    .trade-testnet-banner code { font-size: 0.85em; }
     dialog.trade-modal {
         border: 1px solid var(--border);
         background: var(--panel);
@@ -245,10 +235,6 @@
 </style>
 {% endblock %}
 {% block content %}
-
-{% if hl_network_testnet %}
-<p class="trade-testnet-banner"><strong>Testnet</strong> — запросы и ордера идут на <code>api.hyperliquid-testnet.xyz</code>. Это не mainnet: другой аккаунт и баланс; пополнение — через официальный тестовый кран / мост HL.</p>
-{% endif %}
 
 <div class="trade-topbar">
     <div>

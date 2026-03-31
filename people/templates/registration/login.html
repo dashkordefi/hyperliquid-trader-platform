@@ -1,34 +1,88 @@
-<!doctype html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Вход</title>
-</head>
-<body>
+{% extends "trading/base.html" %}
+{% block title %}Вход — HL Trader{% endblock %}
+{% block main_class %}auth-page{% endblock %}
+{% block extra_css %}
+<style>
+    main.auth-page {
+        max-width: none;
+        min-height: calc(100vh - 3.5rem);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.25rem;
+    }
+    main.auth-page .messages {
+        width: 100%;
+        max-width: 400px;
+        margin-bottom: 1rem;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 400px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.75rem 1.5rem;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+    .auth-card h1 {
+        margin: 0 0 1.25rem;
+        text-align: center;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    .auth-card form p { margin: 0; }
+    .auth-card form label {
+        display: block;
+        margin-top: 1rem;
+        margin-bottom: 0.25rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+    }
+    .auth-card form label:first-of-type,
+    .auth-card form p:first-child label { margin-top: 0; }
+    .auth-card input {
+        max-width: 100%;
+        width: 100%;
+    }
+    .auth-card button[type="submit"] {
+        width: 100%;
+        margin-top: 1.35rem;
+        padding: 0.55rem 1rem;
+    }
+    .auth-error {
+        margin: 0 0 1rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.88rem;
+        background: rgba(218, 54, 51, 0.12);
+        border: 1px solid rgba(218, 54, 51, 0.45);
+        color: #f85149;
+    }
+    .auth-footer {
+        margin: 1.25rem 0 0;
+        text-align: center;
+        font-size: 0.9rem;
+        color: var(--muted);
+    }
+    .auth-footer a { font-weight: 500; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="auth-card">
     <h1>Вход в систему</h1>
-
-    {% if messages %}
-        <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-
     {% if form.errors %}
-        <p>Неверный логин или пароль.</p>
+    <p class="auth-error">Неверный логин или пароль. Проверьте данные и раскладку клавиатуры.</p>
     {% endif %}
-
-    <form method="post">
+    <form method="post" action="{% url 'login' %}">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Войти</button>
+        <button type="submit" class="btn">Войти</button>
     </form>
-
-    <p>
+    <p class="auth-footer">
         Нет аккаунта?
         <a href="{% url 'register' %}">Зарегистрироваться</a>
     </p>
-</body>
-</html>
+</div>
+{% endblock %}
