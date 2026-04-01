@@ -52,17 +52,17 @@
         .header-wallet-line {
             font-size: 0.82rem;
             color: var(--muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: min(52vw, 28rem);
+            max-width: min(96vw, 52rem);
+            line-height: 1.35;
         }
         .header-wallet-line code {
-            font-size: 0.78rem;
+            font-size: 0.76rem;
             background: #21262d;
-            padding: 0.08rem 0.3rem;
+            padding: 0.12rem 0.35rem;
             border-radius: 4px;
             color: var(--text);
+            word-break: break-all;
+            display: inline;
         }
         .nav-drawer-toggle {
             flex-shrink: 0;
@@ -220,6 +220,41 @@
             border-top: 1px solid var(--border);
         }
         .nav-drawer-section:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+        .nav-drawer-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--muted);
+            margin: 0 0 0.55rem;
+            font-weight: 600;
+        }
+        .nav-drawer-actions-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            align-items: stretch;
+        }
+        .nav-drawer-actions-row .btn {
+            flex: 1 1 calc(50% - 0.25rem);
+            min-width: 6.5rem;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .nav-drawer-actions-row form {
+            flex: 1 1 calc(50% - 0.25rem);
+            min-width: 6.5rem;
+            margin: 0;
+            display: flex;
+        }
+        .nav-drawer-actions-row form .btn,
+        .nav-drawer-actions-row form .hl-net-btn {
+            width: 100%;
+            flex: 1;
+        }
+        .nav-drawer-hl-mode {
+            margin: 0.35rem 0 0;
+            font-size: 0.82rem;
+        }
         .funds-bridge-banner {
             background: rgba(88, 166, 255, 0.1);
             border: 1px solid rgba(88, 166, 255, 0.28);
@@ -245,9 +280,9 @@
             <button type="button" class="nav-drawer-toggle" id="nav-drawer-open" aria-controls="nav-drawer" aria-expanded="false" aria-label="Меню и уведомления">☰</button>
             <strong><a href="{% url 'landing' %}" style="color:inherit">HL Trader</a></strong>
             {% if active_trader_wallet %}
-            <span class="header-wallet-line" title="{{ active_trader_wallet.address }}">
+            <span class="header-wallet-line">
                 · {{ active_trader_wallet.label }}
-                <code>{{ active_trader_wallet.address|slice:":6" }}…{{ active_trader_wallet.address|slice:"-4:" }}</code>
+                <code>{{ active_trader_wallet.address }}</code>
             </span>
             {% endif %}
         </div>
@@ -280,7 +315,9 @@
         </div>
         <div class="nav-drawer-body">
             {% if user.is_authenticated %}
-                <p class="nav-drawer-user">{{ user.username }}</p>
+            <div class="nav-drawer-section">
+                <div class="nav-drawer-section-title">Аккаунт</div>
+                <p class="nav-drawer-user" style="margin:0 0 0.35rem">{{ user.username }}</p>
                 {% if user.groups.all %}
                 <div class="nav-group-chips">
                     {% for g in user.groups.all %}
@@ -288,10 +325,13 @@
                     {% endfor %}
                 </div>
                 {% endif %}
-                <p class="muted" style="font-size:0.8rem;margin:0 0 0.75rem">Сеть Hyperliquid: <strong>{{ hl_network_mode }}</strong></p>
+                <p class="nav-drawer-hl-mode muted">Сеть HL: <strong>{{ hl_network_mode }}</strong></p>
+            </div>
             {% endif %}
             {% if is_trader and funds_bridge_banner_ops %}
-            <div id="funds-bridge-banner-root" class="funds-bridge-banner" role="status" aria-live="polite">
+            <div class="nav-drawer-section">
+                <div class="nav-drawer-section-title">Уведомления</div>
+            <div id="funds-bridge-banner-root" class="funds-bridge-banner" role="status" aria-live="polite" style="margin-bottom:0">
                 {% for op in funds_bridge_banner_ops %}
                 <p>
                     <strong>Вывод USDC на Arbitrum в пути</strong>
@@ -338,6 +378,7 @@
                 window._fundsBridgePollTimer = setInterval(poll, intervalMs);
             })();
             </script>
+            </div>
             {% endif %}
             {% block nav_drawer_extra %}{% endblock %}
         </div>
