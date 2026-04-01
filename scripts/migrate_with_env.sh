@@ -11,9 +11,8 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-# shellcheck disable=SC1090
 set -a
-source "$ENV_FILE"
+eval "$(python3 "$ROOT/scripts/envtool.py" export "$ENV_FILE")"
 set +a
 
 if [ -z "${DATABASE_URL:-}" ]; then

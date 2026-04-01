@@ -22,6 +22,14 @@ sudo systemctl restart hyperliquid-trader
 
 Убедитесь, что в `/opt/hyperliquid-trader-platform/.env` задан корректный **`DATABASE_URL`** (не плейсхолдер `<SET_PASSWORD>`).
 
+## Ошибка `.env: syntax error near unexpected token` (при `source .env`)
+
+`SECRET_KEY` и др. с символами `) & ! # $` ломают обычный `source .env`. Используется **`scripts/envtool.py`**. После обновления кода выполните **`deploy.sh`** или вручную:
+
+```bash
+python3 /opt/hyperliquid-trader-platform/scripts/envtool.py materialize /opt/hyperliquid-trader-platform/.env
+```
+
 ## Логи
 
 ```bash

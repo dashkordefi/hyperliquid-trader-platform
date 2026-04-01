@@ -180,7 +180,8 @@ ensure_env_line() {
     if grep -qE "^${key}=" "$ENV_FILE"; then
         return 0
     fi
-    echo "${key}=${value}" >>"$ENV_FILE"
+    # systemd + bash: без «голого» значения — иначе ) & ! # $ ломают source и иногда systemd
+    python3 "$PROJECT_DIR/scripts/envtool.py" append "$ENV_FILE" "$key" "$value"
 }
 
 ensure_env_line "DJANGO_SETTINGS_MODULE" "config.settings"
@@ -215,10 +216,18 @@ fi
 
 chown appuser:appuser "$ENV_FILE"
 chmod 600 "$ENV_FILE"
+# Привести все строки к виду KEY="..." (исправляет старые SECRET_KEY без кавычек)
+python3 "$PROJECT_DIR/scripts/envtool.py" materialize "$ENV_FILE"
+chown appuser:appuser "$ENV_FILE"
 echo ".env готов (ALLOWED_HOSTS и DATABASE_URL настроены)"
 
 echo "==== 9. Миграции, статика, роли (как в build.sh) ===="
-sudo -u appuser bash -c "set -a && source \"$ENV_FILE\" && set +a; cd \"$PROJECT_DIR\" && source \"$VENV_NAME/bin/activate\" && python manage.py collectstatic --noinput"
+sudo -u appuser bash <<ENVEOF
+set -a
+$(python3 "$PROJECT_DIR/scripts/envtool.py" export "$ENV_FILE")
+set +a
+cd "$PROJECT_DIR" && source "$VENV_NAME/bin/activate" && python manage.py collectstatic --noinput
+ENVEOF
 chmod +x "$PROJECT_DIR/scripts/migrate_with_env.sh"
 chown appuser:appuser "$PROJECT_DIR/scripts/migrate_with_env.sh" 2>/dev/null || true
 # Один путь с .env: иначе migrate без DATABASE_URL бьёт в sqlite, Postgres пустой → relation auth_user does not exist
@@ -263,7 +272,12 @@ SVCEOF
 systemctl daemon-reload
 
 echo "==== 12. Диагностика Django ===="
-sudo -u appuser bash -c "set -a && source \"$ENV_FILE\" && set +a; cd \"$PROJECT_DIR\" && source \"$VENV_NAME/bin/activate\" && python manage.py check"
+sudo -u appuser bash <<ENVEOF
+set -a
+$(python3 "$PROJECT_DIR/scripts/envtool.py" export "$ENV_FILE")
+set +a
+cd "$PROJECT_DIR" && source "$VENV_NAME/bin/activate" && python manage.py check
+ENVEOF
 
 echo "==== 13. Запуск Gunicorn ===="
 systemctl stop "$APP_NAME" 2>/dev/null || true
@@ -457,4 +471,4 @@ else
     echo "Приложение: http://$SERVER_IP/  (или http://${PUBLIC_DOMAIN}/ — после успешного certbot будет HTTPS)"
 fi
 echo "Логи приложения: journalctl -u $APP_NAME -f"
-echo "Создать суперпользователя: sudo -u appuser bash -c 'set -a && source \"$ENV_FILE\" && set +a; cd \"$PROJECT_DIR\" && source \"$VENV_NAME/bin/activate\" && python manage.py createsuperuser'"
+echo "Создать суперпользователя: sudo -u appuser bash -c 'set -a; eval \"\$(python3 $PROJECT_DIR/scripts/envtool.py export $ENV_FILE)\"; set +a; cd $PROJECT_DIR && source $VENV_NAME/bin/activate && python manage.py createsuperuser'"
