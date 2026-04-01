@@ -71,18 +71,9 @@
         top: 0;
         z-index: 15;
     }
-    .trade-instrument-bar-inner {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(220px, min(340px, 36vw));
-        gap: 0.5rem 0.75rem;
-        align-items: start;
+    .trade-order-below {
+        margin-bottom: 0.65rem;
     }
-    @media (max-width: 960px) {
-        .trade-instrument-bar-inner {
-            grid-template-columns: 1fr;
-        }
-    }
-    .trade-instrument-left-column { min-width: 0; }
     .trade-instrument-fields {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -111,8 +102,7 @@
         padding: 0.35rem 0.65rem;
         font-size: 0.82rem;
     }
-    .trade-order-panel .hl-form label { margin-top: 0.35rem; }
-    .trade-order-panel .hl-form label:first-of-type { margin-top: 0; }
+    .trade-order-panel .hl-form label { margin-top: 0; }
     .trade-order-panel input, .trade-order-panel select {
         max-width: 100%;
         padding: 0.32rem 0.45rem;
@@ -137,18 +127,80 @@
         color: var(--muted);
         margin: 0 0 0.45rem;
     }
-    .trade-order-panel form.place-order-form label { margin-top: 0.4rem; }
-    .trade-order-panel form.place-order-form label:first-child { margin-top: 0; }
-    .trade-order-side-kind {
+    .trade-order-line {
         display: flex;
-        gap: 0.45rem;
         flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.4rem 0.55rem;
+        margin-bottom: 0.35rem;
     }
-    .trade-order-side-kind > div { flex: 1 1 calc(50% - 0.25rem); min-width: 5.5rem; }
+    .trade-order-fcell {
+        flex: 1 1 auto;
+        min-width: 5rem;
+    }
+    .trade-order-fcell--narrow {
+        flex: 0 1 7.5rem;
+        min-width: 5.5rem;
+    }
+    .trade-order-fcell--lev {
+        flex: 2 1 10rem;
+        min-width: 8rem;
+        max-width: 100%;
+    }
+    .trade-order-fcell--wide {
+        flex: 1 1 7rem;
+        min-width: 5rem;
+    }
+    .trade-order-fcell--submit {
+        flex: 0 0 auto;
+        align-self: flex-end;
+    }
+    .trade-order-fcell--submit .btn-submit-order {
+        margin-top: 0;
+        padding: 0.38rem 0.85rem;
+        white-space: nowrap;
+    }
+    .trade-order-fcell__label-spacer {
+        display: block;
+        margin: 0 0 0.2rem;
+        font-size: 0.72rem;
+        visibility: hidden;
+        line-height: 1.2;
+    }
+    .trade-order-line-spot .trade-order-fcell--narrow {
+        flex: 0 1 6.5rem;
+    }
+    .trade-order-line-spot .trade-order-fcell--sz {
+        flex: 1 1 6rem;
+        min-width: 4.5rem;
+    }
+    .trade-order-line-spot .trade-order-fcell--limit {
+        flex: 1 1 6rem;
+        min-width: 4.5rem;
+    }
+    .perp-leverage-inline {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: rgba(88, 166, 255, 0.06);
+        padding: 0.25rem 0.45rem 0.3rem;
+    }
+    .perp-leverage-inline .perp-leverage-label {
+        display: block;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin-bottom: 0.15rem;
+        font-weight: 600;
+    }
+    .perp-max-hint {
+        margin: 0 0 0.35rem !important;
+        font-size: 0.65rem !important;
+    }
     .btn-submit-order {
-        width: 100%;
-        margin-top: 0.55rem;
-        padding: 0.4rem 0.75rem;
+        width: auto;
+        margin-top: 0;
+        padding: 0.38rem 0.85rem;
         font-weight: 600;
         font-size: 0.88rem;
     }
@@ -212,22 +264,6 @@
         flex-wrap: wrap;
     }
     dialog.trade-modal .modal-actions button { flex: 1; min-width: 0; }
-    .perp-leverage-wrap {
-        margin-top: 0.4rem;
-        padding: 0.4rem 0.5rem;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background: rgba(88, 166, 255, 0.06);
-    }
-    .perp-leverage-wrap .perp-leverage-label {
-        display: block;
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--muted);
-        margin-bottom: 0.35rem;
-        font-weight: 600;
-    }
     .perp-leverage-row {
         display: flex;
         align-items: center;
@@ -268,87 +304,116 @@
     </div>
 </div>
 
-<div class="trade-instrument-bar" aria-label="Рынок и ордер">
-    <div class="trade-instrument-bar-inner">
-        <div class="trade-instrument-left-column">
-            <form method="get" class="hl-form trade-instrument-form" action="">
-                <div class="trade-instrument-fields">
-                    <div class="trade-field">
-                        <label for="market">Рынок</label>
-                        <select name="market" id="market">
-                            <option value="perp" {% if market_type == "perp" %}selected{% endif %}>Perpetuals</option>
-                            <option value="spot" {% if market_type == "spot" %}selected{% endif %}>Spot</option>
-                        </select>
-                    </div>
-                    <div class="trade-field">
-                        <label for="symbol">Пара / монета</label>
-                        <input name="symbol" id="symbol" value="{{ symbol }}" placeholder="ETH, BTC…" autocomplete="off" list="perp-coins">
-                    </div>
-                </div>
-                <datalist id="perp-coins">
-                    {% for s in perp_symbols %}<option value="{{ s }}">{% endfor %}
-                </datalist>
-                <datalist id="spot-coins">
-                    {% for s in spot_symbols %}<option value="{{ s }}">{% endfor %}
-                </datalist>
-                <p class="trade-apply-row" style="margin-bottom:0"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
-            </form>
+<div class="trade-instrument-bar" aria-label="Рынок">
+    <form method="get" class="hl-form trade-instrument-form" action="">
+        <div class="trade-instrument-fields">
+            <div class="trade-field">
+                <label for="market">Рынок</label>
+                <select name="market" id="market">
+                    <option value="perp" {% if market_type == "perp" %}selected{% endif %}>Perpetuals</option>
+                    <option value="spot" {% if market_type == "spot" %}selected{% endif %}>Spot</option>
+                </select>
+            </div>
+            <div class="trade-field">
+                <label for="symbol">Пара / монета</label>
+                <input name="symbol" id="symbol" value="{{ symbol }}" placeholder="ETH, BTC…" autocomplete="off" list="perp-coins">
+            </div>
         </div>
-        <div class="trade-order-panel" aria-label="Панель ордера">
-            <div class="trade-order-block">
-                <h3>Ордер</h3>
-                {% if not hl_trading_key_configured %}
-                    <p class="muted-note">Нет ключа для этого кошелька: создайте кошелёк с ключом или задайте <code>HYPERLIQUID_TRADING_PRIVATE_KEY</code>.</p>
-                {% else %}
-                    <form method="post" action="{% url 'place_order' %}" class="place-order-form" data-mid="{% if data.mid_price is not None %}{{ data.mid_price }}{% endif %}"
-                        data-max-sell-sz="{% if data.order_max_sell.sz is not None %}{{ data.order_max_sell.sz }}{% endif %}"
-                        data-max-sell-unit="{{ data.order_max_sell.unit|default:'' }}"
-                        data-max-sell-unknown="{% if data.order_max_sell.sz is None %}1{% else %}0{% endif %}"
-                        data-perp-av="{% if data.perp_market_auto and data.perp_market_auto.account_value_usd is not None %}{{ data.perp_market_auto.account_value_usd }}{% endif %}"
-                        data-perp-symbol="{{ symbol }}">
-                        {% csrf_token %}
-                        {{ place_order_form.market_type }}
-                        {{ place_order_form.symbol }}
-                        <div class="trade-order-side-kind">
-                            <div>
-                                <label for="id_side">{{ place_order_form.side.label }}</label>
-                                {{ place_order_form.side }}
-                            </div>
-                            <div>
-                                <label for="id_order_kind">{{ place_order_form.order_kind.label }}</label>
-                                {{ place_order_form.order_kind }}
-                            </div>
-                        </div>
-                        {% if market_type == "perp" %}
-                        <div class="perp-leverage-wrap" id="perp-leverage-wrap"
+        <datalist id="perp-coins">
+            {% for s in perp_symbols %}<option value="{{ s }}">{% endfor %}
+        </datalist>
+        <datalist id="spot-coins">
+            {% for s in spot_symbols %}<option value="{{ s }}">{% endfor %}
+        </datalist>
+        <p class="trade-apply-row" style="margin-bottom:0"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
+    </form>
+</div>
+
+<div class="trade-order-panel trade-order-below" aria-label="Панель ордера">
+    <div class="trade-order-block">
+        <h3>Ордер</h3>
+        {% if not hl_trading_key_configured %}
+            <p class="muted-note">Нет ключа для этого кошелька: создайте кошелёк с ключом или задайте <code>HYPERLIQUID_TRADING_PRIVATE_KEY</code>.</p>
+        {% else %}
+            <form method="post" action="{% url 'place_order' %}" class="place-order-form" data-mid="{% if data.mid_price is not None %}{{ data.mid_price }}{% endif %}"
+                data-max-sell-sz="{% if data.order_max_sell.sz is not None %}{{ data.order_max_sell.sz }}{% endif %}"
+                data-max-sell-unit="{{ data.order_max_sell.unit|default:'' }}"
+                data-max-sell-unknown="{% if data.order_max_sell.sz is None %}1{% else %}0{% endif %}"
+                data-perp-av="{% if data.perp_market_auto and data.perp_market_auto.account_value_usd is not None %}{{ data.perp_market_auto.account_value_usd }}{% endif %}"
+                data-perp-symbol="{{ symbol }}">
+                {% csrf_token %}
+                {{ place_order_form.market_type }}
+                {{ place_order_form.symbol }}
+                {% if market_type == "perp" %}
+                <div class="trade-order-line">
+                    <div class="trade-order-fcell trade-order-fcell--narrow">
+                        <label for="id_side">{{ place_order_form.side.label }}</label>
+                        {{ place_order_form.side }}
+                    </div>
+                    <div class="trade-order-fcell trade-order-fcell--narrow">
+                        <label for="id_order_kind">{{ place_order_form.order_kind.label }}</label>
+                        {{ place_order_form.order_kind }}
+                    </div>
+                    <div class="trade-order-fcell trade-order-fcell--lev">
+                        <div class="perp-leverage-inline" id="perp-leverage-wrap"
                             data-lev-max="{% if data.perp_leverage and data.perp_leverage.max is not None %}{{ data.perp_leverage.max }}{% else %}125{% endif %}"
                             data-lev-initial="{% if data.perp_leverage and data.perp_leverage.initial is not None %}{{ data.perp_leverage.initial }}{% else %}20{% endif %}">
-                            <span class="perp-leverage-label">leverage</span>
+                            <span class="perp-leverage-label">Плечо</span>
                             <div class="perp-leverage-row">
                                 <input type="range" id="perp-leverage-slider" min="1" max="125" step="1" aria-valuemin="1" aria-valuemax="125" />
                                 <span id="perp-leverage-readout" aria-live="polite">—</span>
                             </div>
-                            <p class="muted-note" style="font-size:0.68rem;margin:0.25rem 0 0;line-height:1.3">
-                                Max: {% if data.perp_leverage and data.perp_leverage.max is not None %}{{ data.perp_leverage.max }}×{% else %}—{% endif %}
-                                {% if data.perp_leverage and data.perp_leverage.only_isolated %}<span class="muted"> (isolated)</span>{% endif %}
-                            </p>
                         </div>
-                        {% endif %}
-                        {{ place_order_form.leverage }}
-                        <div id="order-field-sz">
-                            <label for="id_sz">{{ place_order_form.sz.label }}</label>
-                            {{ place_order_form.sz }}
-                        </div>
-                        <p id="order-max-sell-hint" class="muted-note" style="font-size:0.7rem;margin:0.25rem 0 0;line-height:1.35;opacity:0.92" aria-live="polite"></p>
-                        <div id="order-field-limit">
-                            <label for="id_limit_px">{{ place_order_form.limit_px.label }}</label>
-                            {{ place_order_form.limit_px }}
-                        </div>
+                    </div>
+                </div>
+                <p class="muted-note perp-max-hint">
+                    Макс. плечо: {% if data.perp_leverage and data.perp_leverage.max is not None %}{{ data.perp_leverage.max }}×{% else %}—{% endif %}
+                    {% if data.perp_leverage and data.perp_leverage.only_isolated %}<span class="muted"> (isolated)</span>{% endif %}
+                </p>
+                {{ place_order_form.leverage }}
+                <div class="trade-order-line">
+                    <div id="order-field-sz" class="trade-order-fcell trade-order-fcell--wide">
+                        <label for="id_sz">{{ place_order_form.sz.label }}</label>
+                        {{ place_order_form.sz }}
+                    </div>
+                    <div id="order-field-limit" class="trade-order-fcell trade-order-fcell--wide">
+                        <label for="id_limit_px">{{ place_order_form.limit_px.label }}</label>
+                        {{ place_order_form.limit_px }}
+                    </div>
+                    <div class="trade-order-fcell trade-order-fcell--submit">
+                        <span class="trade-order-fcell__label-spacer" aria-hidden="true">.</span>
                         <button type="submit" class="btn-submit-order">Отправить ордер</button>
-                    </form>
+                    </div>
+                </div>
+                <p id="order-max-sell-hint" class="muted-note" style="font-size:0.7rem;margin:0.25rem 0 0;line-height:1.35;opacity:0.92" aria-live="polite"></p>
+                {% else %}
+                <div class="trade-order-line trade-order-line-spot">
+                    <div class="trade-order-fcell trade-order-fcell--narrow">
+                        <label for="id_side">{{ place_order_form.side.label }}</label>
+                        {{ place_order_form.side }}
+                    </div>
+                    <div class="trade-order-fcell trade-order-fcell--narrow">
+                        <label for="id_order_kind">{{ place_order_form.order_kind.label }}</label>
+                        {{ place_order_form.order_kind }}
+                    </div>
+                    <div id="order-field-sz" class="trade-order-fcell trade-order-fcell--sz">
+                        <label for="id_sz">{{ place_order_form.sz.label }}</label>
+                        {{ place_order_form.sz }}
+                    </div>
+                    <div id="order-field-limit" class="trade-order-fcell trade-order-fcell--limit">
+                        <label for="id_limit_px">{{ place_order_form.limit_px.label }}</label>
+                        {{ place_order_form.limit_px }}
+                    </div>
+                    <div class="trade-order-fcell trade-order-fcell--submit">
+                        <span class="trade-order-fcell__label-spacer" aria-hidden="true">.</span>
+                        <button type="submit" class="btn-submit-order">Отправить ордер</button>
+                    </div>
+                </div>
+                {{ place_order_form.leverage }}
+                <p id="order-max-sell-hint" class="muted-note" style="font-size:0.7rem;margin:0.25rem 0 0;line-height:1.35;opacity:0.92" aria-live="polite"></p>
                 {% endif %}
-            </div>
-        </div>
+            </form>
+        {% endif %}
     </div>
 </div>
 
