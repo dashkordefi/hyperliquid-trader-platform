@@ -22,6 +22,7 @@
    npx wrangler login && npx wrangler deploy (см. README в этой папке). Если в веб-редакторе
    Workers нельзя менять код — используйте только этот способ. Затем
    HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev (без слэша в конце).
+   Запросы к Worker с Render идут через curl-cffi (TLS как у Chrome); зависимость в requirements.txt.
 
 Hyperliquid testnet (локально или в Environment)
 ===============================================
