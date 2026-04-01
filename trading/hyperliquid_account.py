@@ -5,6 +5,7 @@ Hyperliquid Account Manager
 
 import os
 import time
+from urllib.parse import urlparse
 from typing import Optional, Dict, Any, List
 from collections.abc import Mapping
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
@@ -41,13 +42,14 @@ def _hyperunit_base_url_from_settings(*, testnet: bool) -> str:
 
 
 def _check_hyperunit_response(resp) -> None:
-    """403: прямой Hyperunit с IP хостинга, или Cloudflare режет inbound до workers.dev на Python requests."""
+    """403: IP/Cloudflare; см. _hyperunit_http_get_with_fallback (повтор на api.hyperunit.xyz)."""
     if resp.status_code == 403:
         got = getattr(resp, "url", None) or "(URL неизвестен)"
         raise Exception(
             f"Hyperunit API: 403 для запроса к {got}. "
-            "Проверьте HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev в Render и перезапуск. "
-            "Приложение использует curl-cffi (TLS как у Chrome) — убедитесь, что зависимости обновлены после деплоя."
+            "Если это api.hyperunit.xyz — CF режет IP хостинга. "
+            "Если Worker — попробуйте убрать HYPERUNIT_MAINNET_API_URL в Render (прямой запрос с curl-cffi) "
+            "или прокси не на workers.dev."
         )
     resp.raise_for_status()
 
@@ -64,6 +66,27 @@ def _hyperunit_http_get(url: str, *, testnet: bool):
         return creq.get(url, headers=headers, impersonate="chrome", timeout=30)
     except ImportError:
         return requests.get(url, headers=headers, timeout=30)
+
+
+def _hyperunit_http_get_with_fallback(first_url: str, *, testnet: bool):
+    """
+    Сначала URL из settings (часто Cloudflare Worker). Inbound на *.workers.dev иногда даёт 403
+    с IP хостинга (Render) даже при curl-cffi — тогда повторяем на официальный api.hyperunit.* с тем же path.
+    """
+    r = _hyperunit_http_get(first_url, testnet=testnet)
+    if r.status_code != 403:
+        return r
+    parsed = urlparse(first_url)
+    path_qs = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+    canonical = (
+        "https://api.hyperunit-testnet.xyz"
+        if testnet
+        else "https://api.hyperunit.xyz"
+    ).rstrip("/")
+    second_url = canonical + path_qs
+    if second_url == first_url:
+        return r
+    return _hyperunit_http_get(second_url, testnet=testnet)
 
 
 def _hyperunit_request_headers(*, testnet: bool) -> dict[str, str]:
@@ -435,7 +458,7 @@ class HyperliquidAccount:
             base_url = _hyperunit_base_url_from_settings(testnet=tn)
             api_url = f"{base_url}/gen/ethereum/hyperliquid/eth/{self.address}"
 
-            response = _hyperunit_http_get(api_url, testnet=tn)
+            response = _hyperunit_http_get_with_fallback(api_url, testnet=tn)
             _check_hyperunit_response(response)
 
             result = response.json()
@@ -817,7 +840,7 @@ class HyperliquidAccount:
         tn = self.hyperliquid_chain == "Testnet"
         base_url = _hyperunit_base_url_from_settings(testnet=tn)
 
-        address_resp = _hyperunit_http_get(
+        address_resp = _hyperunit_http_get_with_fallback(
             f"{base_url}/gen/hyperliquid/ethereum/eth/{destination_eth_address}",
             testnet=tn,
         )
