@@ -52,27 +52,48 @@
         flex-direction: column;
         gap: 0.55rem;
     }
-    .trade-order-panel {
-        background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 0.55rem 0.65rem;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-        min-width: 0;
-    }
-    .trade-instrument-bar {
+    .trade-market-order-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.5rem 0.75rem;
+        align-items: stretch;
         margin-bottom: 0.65rem;
-        padding: 0.55rem 0.65rem;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        background: linear-gradient(180deg, #1c2128 0%, #161b22 100%);
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
         position: sticky;
         top: 0;
         z-index: 15;
     }
-    .trade-order-below {
-        margin-bottom: 0.65rem;
+    @media (max-width: 960px) {
+        .trade-market-order-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    .trade-panel {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.55rem 0.65rem;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, #1c2128 0%, #161b22 100%);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
+    }
+    .trade-instrument-bar form.trade-instrument-form {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+    .trade-instrument-bar .trade-apply-row {
+        margin-top: auto;
+    }
+    .trade-order-panel {
+        min-width: 0;
+    }
+    .trade-panel .trade-order-block {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
     }
     .trade-instrument-fields {
         display: grid;
@@ -304,11 +325,14 @@
     </div>
 </div>
 
-<div class="trade-instrument-bar" aria-label="Рынок">
+<div class="trade-market-order-row">
+<div class="trade-panel trade-instrument-bar" aria-label="Рынок">
+    <div class="trade-order-block">
+    <h3>Рынок</h3>
     <form method="get" class="hl-form trade-instrument-form" action="">
         <div class="trade-instrument-fields">
             <div class="trade-field">
-                <label for="market">Рынок</label>
+                <label for="market">Тип</label>
                 <select name="market" id="market">
                     <option value="perp" {% if market_type == "perp" %}selected{% endif %}>Perpetuals</option>
                     <option value="spot" {% if market_type == "spot" %}selected{% endif %}>Spot</option>
@@ -327,9 +351,10 @@
         </datalist>
         <p class="trade-apply-row" style="margin-bottom:0"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
     </form>
+    </div>
 </div>
 
-<div class="trade-order-panel trade-order-below" aria-label="Панель ордера">
+<div class="trade-panel trade-order-panel" aria-label="Панель ордера">
     <div class="trade-order-block">
         <h3>Ордер</h3>
         {% if not hl_trading_key_configured %}
@@ -415,6 +440,7 @@
             </form>
         {% endif %}
     </div>
+</div>
 </div>
 
 <div class="trade-layout">
