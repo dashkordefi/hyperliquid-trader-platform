@@ -4,6 +4,11 @@
 # Использование:
 #   1. Скопируйте скрипт на сервер: scp deploy.sh root@<server_ip>:~/
 #   2. На сервере: chmod +x deploy.sh && sudo ./deploy.sh
+#   По умолчанию .venv каждый раз пересоздаётся. Быстрый прогон без пересоздания venv:
+#     sudo env DEPLOY_REBUILD_VENV=0 ./deploy.sh
+#   HTTPS (Let's Encrypt): при наличии PUBLIC_DOMAIN и отсутствии сертификата запускается certbot.
+#     Почта по умолчанию в скрипте/.env; другая: sudo env CERTBOT_EMAIL=you@example.com ./deploy.sh
+#     Отключить выпуск сертификата: sudo env DEPLOY_SKIP_LETSENCRYPT=1 ./deploy.sh
 #
 # Требуется на сервере:
 #   - доступ root (sudo)
@@ -34,6 +39,51 @@ PG_DB_USER="hyperliquid_trader"
 
 # Публичный домен (без https://): ALLOWED_HOSTS/CSRF подхватываются в config.settings через PUBLIC_DOMAIN.
 PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-kriptografiya.pro}"
+# Попадает в .env и в certbot --email (переопределение: env CERTBOT_EMAIL=...).
+CERTBOT_EMAIL="${CERTBOT_EMAIL:-bvkuchin@gmail.com}"
+# 1 — не вызывать certbot (только HTTP).
+DEPLOY_SKIP_LETSENCRYPT="${DEPLOY_SKIP_LETSENCRYPT:-0}"
+
+# 1 / true / yes — удалить и заново создать .venv (и заново поставить зависимости). По умолчанию включено.
+# Отключить: sudo env DEPLOY_REBUILD_VENV=0 ./deploy.sh
+DEPLOY_REBUILD_VENV="${DEPLOY_REBUILD_VENV:-1}"
+
+_env_is_truthy() {
+    case "${1,,}" in
+        1|true|yes|y|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Имена для nginx server_name (apex + www), для пустого PUBLIC_DOMAIN — «_».
+_deploy_nginx_server_names() {
+    if [ -z "${PUBLIC_DOMAIN:-}" ]; then
+        printf '%s' '_'
+        return
+    fi
+    case "$PUBLIC_DOMAIN" in
+        www.*) printf '%s %s' "$PUBLIC_DOMAIN" "${PUBLIC_DOMAIN#www.}" ;;
+        *) printf '%s %s' "$PUBLIC_DOMAIN" "www.$PUBLIC_DOMAIN" ;;
+    esac
+}
+
+# Каталог Let's Encrypt live/*/ если сертификат уже выпущен (пусто — нет).
+_deploy_find_le_dir() {
+    [ -n "${PUBLIC_DOMAIN:-}" ] || return 1
+    local c
+    local candidates=("$PUBLIC_DOMAIN")
+    case "$PUBLIC_DOMAIN" in
+        www.*) candidates+=("${PUBLIC_DOMAIN#www.}") ;;
+        *) candidates+=("www.$PUBLIC_DOMAIN") ;;
+    esac
+    for c in "${candidates[@]}"; do
+        if [ -f "/etc/letsencrypt/live/$c/fullchain.pem" ]; then
+            echo "/etc/letsencrypt/live/$c"
+            return 0
+        fi
+    done
+    return 1
+}
 
 # === Проверка прав ===
 if [ "$EUID" -ne 0 ]; then
@@ -48,7 +98,8 @@ apt install -y \
   python3 python3-pip python3-venv \
   nginx git curl ca-certificates \
   postgresql postgresql-contrib \
-  libpq-dev
+  libpq-dev \
+  certbot python3-certbot-nginx
 
 echo "==== 2. Проверка Python ===="
 if ! command -v $PYTHON_CMD &>/dev/null; then
@@ -83,11 +134,22 @@ else
     cd "$PROJECT_DIR"
 fi
 
+# Дальше все относительные пути (.venv и т.д.) — внутри каталога проекта.
+cd "$PROJECT_DIR"
+
 chown -R appuser:appuser "$PROJECT_DIR"
 chmod -R 755 "$PROJECT_DIR"
 
 echo "==== 6. Виртуальное окружение и зависимости ===="
-sudo -u appuser $PYTHON_CMD -m venv "$VENV_NAME"
+if _env_is_truthy "$DEPLOY_REBUILD_VENV"; then
+    echo "DEPLOY_REBUILD_VENV: пересоздаём $VENV_NAME (--clear)"
+    sudo -u appuser $PYTHON_CMD -m venv --clear "$PROJECT_DIR/$VENV_NAME"
+elif [ ! -x "$PROJECT_DIR/$VENV_NAME/bin/python" ]; then
+    echo "Создаём $VENV_NAME"
+    sudo -u appuser $PYTHON_CMD -m venv "$PROJECT_DIR/$VENV_NAME"
+else
+    echo "Виртуальное окружение уже есть; создание пропущено (DEPLOY_REBUILD_VENV=0)"
+fi
 sudo -u appuser bash -c "cd $PROJECT_DIR && source $VENV_NAME/bin/activate && pip install --upgrade pip && pip install -r requirements.txt"
 
 echo "==== 7. Настройка Postgres (локально) ===="
@@ -147,6 +209,9 @@ else
     echo "ВНИМАНИЕ: пароль пользователя Postgres уже существует; обновите DATABASE_URL в $ENV_FILE вручную."
 fi
 ensure_env_line "DATABASE_SSL_REQUIRE" "false"
+if [ -n "${CERTBOT_EMAIL:-}" ]; then
+    ensure_env_line "CERTBOT_EMAIL" "$CERTBOT_EMAIL"
+fi
 
 chown appuser:appuser "$ENV_FILE"
 chmod 600 "$ENV_FILE"
@@ -228,10 +293,45 @@ chown appuser:www-data "$SOCK_FILE" 2>/dev/null || true
 chmod 660 "$SOCK_FILE" 2>/dev/null || true
 
 echo "==== 14. Nginx ===="
-cat > "/etc/nginx/sites-available/${APP_NAME}" <<EOF
+mkdir -p /var/www/certbot
+chown www-data:www-data /var/www/certbot
+chmod 755 /var/www/certbot
+
+NGINX_SERVER_NAMES="$(_deploy_nginx_server_names)"
+LE_DIR="$(_deploy_find_le_dir || true)"
+
+SSL_DHPARAM_LINE=""
+if [ -f /etc/letsencrypt/ssl-dhparams.pem ]; then
+    SSL_DHPARAM_LINE="ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;"
+fi
+
+_write_nginx_site() {
+    local outfile="/etc/nginx/sites-available/${APP_NAME}"
+    if [ -n "$LE_DIR" ]; then
+        echo "Пишем nginx с HTTPS (сертификат: $LE_DIR)"
+        cat >"$outfile" <<EOF
 server {
     listen 80;
-    server_name _;
+    server_name ${NGINX_SERVER_NAMES};
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${NGINX_SERVER_NAMES};
+
+    ssl_certificate ${LE_DIR}/fullchain.pem;
+    ssl_certificate_key ${LE_DIR}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ${SSL_DHPARAM_LINE}
 
     client_max_body_size 10M;
 
@@ -254,18 +354,105 @@ server {
     }
 }
 EOF
+    else
+        echo "Пишем nginx только HTTP (certbot добавит HTTPS при первом выпуске)"
+        cat >"$outfile" <<EOF
+server {
+    listen 80;
+    server_name ${NGINX_SERVER_NAMES};
+
+    client_max_body_size 10M;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+
+    location /static/ {
+        alias $PROJECT_DIR/staticfiles/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location / {
+        proxy_pass http://unix:$SOCK_FILE;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+    }
+}
+EOF
+    fi
+}
+
+_write_nginx_site
 
 ln -sf "/etc/nginx/sites-available/${APP_NAME}" /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
-echo "==== 15. Статус ===="
+echo "==== 15. Let's Encrypt (HTTPS, если сертификата ещё нет) ===="
+if [ -z "${PUBLIC_DOMAIN:-}" ] || [ "$NGINX_SERVER_NAMES" = "_" ]; then
+    echo "PUBLIC_DOMAIN не задан — certbot пропущен."
+elif [ -n "$LE_DIR" ]; then
+    echo "Сертификат уже есть ($LE_DIR), выпуск не требуется."
+elif _env_is_truthy "$DEPLOY_SKIP_LETSENCRYPT"; then
+    echo "DEPLOY_SKIP_LETSENCRYPT=1 — certbot пропущен."
+else
+    echo "Запуск certbot (нужны DNS на этот сервер и доступность :80 с интернета)..."
+    _certbot_args=(
+        certbot
+        --nginx
+        --non-interactive
+        --agree-tos
+        --redirect
+    )
+    if [ -n "${CERTBOT_EMAIL:-}" ]; then
+        _certbot_args+=(--email "$CERTBOT_EMAIL")
+    else
+        _certbot_args+=(--register-unsafely-without-email)
+    fi
+    for _d in $NGINX_SERVER_NAMES; do
+        _certbot_args+=(-d "$_d")
+    done
+    set +e
+    "${_certbot_args[@]}"
+    _crb=$?
+    set -e
+    if [ "$_crb" -ne 0 ]; then
+        echo "ВНИМАНИЕ: certbot завершился с кодом $_crb. Проверьте DNS, 80 порт и логи: /var/log/letsencrypt/letsencrypt.log"
+    else
+        LE_DIR="$(_deploy_find_le_dir || true)"
+        if [ -n "$LE_DIR" ]; then
+            if [ -f /etc/letsencrypt/ssl-dhparams.pem ]; then
+                SSL_DHPARAM_LINE="ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;"
+            else
+                SSL_DHPARAM_LINE=""
+            fi
+            _write_nginx_site
+        fi
+        systemctl enable --now certbot.timer 2>/dev/null || true
+        nginx -t
+        systemctl reload nginx
+    fi
+fi
+
+echo "==== 16. Статус ===="
 systemctl status "$APP_NAME" --no-pager || true
 systemctl status nginx --no-pager || true
 
 echo ""
 echo "==== Готово ===="
-echo "Приложение: http://$SERVER_IP/"
+if [ -n "${LE_DIR:-}" ]; then
+    echo "Приложение: https://${PUBLIC_DOMAIN}/ (и http://$SERVER_IP/ → редирект на HTTPS)"
+else
+    echo "Приложение: http://$SERVER_IP/  (или http://${PUBLIC_DOMAIN}/ — после успешного certbot будет HTTPS)"
+fi
 echo "Логи приложения: journalctl -u $APP_NAME -f"
 echo "Создать суперпользователя: sudo -u appuser bash -c 'set -a && source \"$ENV_FILE\" && set +a; cd \"$PROJECT_DIR\" && source \"$VENV_NAME/bin/activate\" && python manage.py createsuperuser'"

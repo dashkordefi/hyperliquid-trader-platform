@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
 from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 
 from .hl_network import hl_testnet_enabled, hyperliquid_info_url
 from .hyperliquid_info import HyperliquidInfoClient, HyperliquidInfoError
@@ -877,6 +880,9 @@ def fetch_dashboard_data(address: str, market_type: str, symbol: str) -> dict[st
             out["perp_market_auto"] = None
     except HyperliquidInfoError as e:
         out["error"] = str(e)
+    except Exception as e:
+        logger.exception("fetch_dashboard_data: неожиданная ошибка")
+        out["error"] = f"Внутренняя ошибка при разборе данных HL: {e}"
     return out
 
 

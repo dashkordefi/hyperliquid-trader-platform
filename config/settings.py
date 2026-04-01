@@ -132,7 +132,17 @@ for _h in list(ALLOWED_HOSTS):
     for _scheme in ("http://", "https://"):
         _add_csrf_origin(CSRF_TRUSTED_ORIGINS, f"{_scheme}{_h}")
 
-if _render:
+# За Render / nginx с HTTPS: иначе request.is_secure() ложен, схема в редиректах/CSRF может ломаться.
+_use_https_proxy = _render or os.environ.get(
+    "USE_HTTPS_BEHIND_PROXY", ""
+).lower() in ("true", "1", "yes")
+if not _use_https_proxy:
+    for _uk in ("PUBLIC_URL", "SITE_URL"):
+        _ru = (os.environ.get(_uk) or "").strip()
+        if _ru.lower().startswith("https://"):
+            _use_https_proxy = True
+            break
+if _use_https_proxy:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Включайте только если за прокси ломается Host; иначе X-Forwarded-Host иногда даёт несовпадение с Origin → 403 CSRF.
 if os.environ.get("USE_X_FORWARDED_HOST", "").lower() in ("true", "1", "yes"):
