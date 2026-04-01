@@ -24,11 +24,26 @@ from hyperliquid.utils.signing import (
 )
 
 
-def _hyperunit_request_headers() -> dict[str, str]:
-    """Заголовки для публичного API Unit (hyperunit.xyz). Без User-Agent часть CDN/WAF отвечает 403."""
+def _hyperunit_request_headers(*, testnet: bool) -> dict[str, str]:
+    """
+    Заголовки для публичного API Unit (hyperunit.xyz).
+
+    Cloudflare режет запросы без Origin/Referer «как с app Hyperliquid» — иначе 403
+    (даже с User-Agent). См. curl к /gen/... с Referer https://app.hyperliquid.xyz/
+    """
+    origin = (
+        "https://app.hyperliquid-testnet.xyz"
+        if testnet
+        else "https://app.hyperliquid.xyz"
+    )
     return {
-        "User-Agent": "HyperliquidTraderPlatform/1.0 (+https://github.com/dashkordefi/hyperliquid-trader-platform)",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        ),
         "Accept": "application/json",
+        "Origin": origin,
+        "Referer": f"{origin}/",
     }
 
 
@@ -382,7 +397,11 @@ class HyperliquidAccount:
             api_url = f"{base_url}/gen/ethereum/hyperliquid/eth/{self.address}"
 
             response = requests.get(
-                api_url, timeout=30, headers=_hyperunit_request_headers()
+                api_url,
+                timeout=30,
+                headers=_hyperunit_request_headers(
+                    testnet=self.hyperliquid_chain == "Testnet",
+                ),
             )
             response.raise_for_status()
 
@@ -769,7 +788,9 @@ class HyperliquidAccount:
         address_resp = requests.get(
             f"{base_url}/gen/hyperliquid/ethereum/eth/{destination_eth_address}",
             timeout=30,
-            headers=_hyperunit_request_headers(),
+            headers=_hyperunit_request_headers(
+                testnet=self.hyperliquid_chain == "Testnet",
+            ),
         )
         try:
             address_result = address_resp.json()
