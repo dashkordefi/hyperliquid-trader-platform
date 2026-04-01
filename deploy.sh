@@ -219,8 +219,10 @@ echo ".env готов (ALLOWED_HOSTS и DATABASE_URL настроены)"
 
 echo "==== 9. Миграции, статика, роли (как в build.sh) ===="
 sudo -u appuser bash -c "set -a && source \"$ENV_FILE\" && set +a; cd \"$PROJECT_DIR\" && source \"$VENV_NAME/bin/activate\" && python manage.py collectstatic --noinput"
-sudo -u appuser bash -c "set -a && source \"$ENV_FILE\" && set +a; cd \"$PROJECT_DIR\" && source \"$VENV_NAME/bin/activate\" && python manage.py migrate --noinput"
-sudo -u appuser bash -c "set -a && source \"$ENV_FILE\" && set +a; cd \"$PROJECT_DIR\" && source \"$VENV_NAME/bin/activate\" && python manage.py init_roles"
+chmod +x "$PROJECT_DIR/scripts/migrate_with_env.sh"
+chown appuser:appuser "$PROJECT_DIR/scripts/migrate_with_env.sh" 2>/dev/null || true
+# Один путь с .env: иначе migrate без DATABASE_URL бьёт в sqlite, Postgres пустой → relation auth_user does not exist
+sudo -u appuser "$PROJECT_DIR/scripts/migrate_with_env.sh"
 # Чтобы nginx (www-data) мог отдавать статику из STATIC_ROOT
 chmod -R o+rX "$PROJECT_DIR/staticfiles" 2>/dev/null || true
 chmod o+x /opt "/opt/$REPO_DIR" 2>/dev/null || true
