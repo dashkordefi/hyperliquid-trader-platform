@@ -69,10 +69,20 @@ def _usd_matches_chain(expected: int, actual: int) -> bool:
     """
     Сумма в заявке (Decimal) и usd в событии могут расходиться на несколько
     микро-USDC из-за float в HL API / округления.
+
+    На Bridge2 в FinalizedWithdrawal часто приходит net-сумма после комиссии моста
+    (~1 USDC): заявка на 10 USDC, в логе usd ≈ 9e6. Без учёта этого баннер
+    «ожидаем финализацию» не снимался.
     """
     if actual == expected:
         return True
-    return abs(actual - expected) <= 2000  # до 0,002 USDC
+    diff = abs(actual - expected)
+    if diff <= 2000:  # до ~0,002 USDC — округление / float
+        return True
+    # Net после комиссии моста: actual меньше expected не более чем на ~2 USDC (запас)
+    if actual < expected and (expected - actual) <= 2_000_000:
+        return True
+    return False
 
 
 def _w3(testnet: bool) -> Optional[Web3]:

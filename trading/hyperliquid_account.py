@@ -24,6 +24,14 @@ from hyperliquid.utils.signing import (
 )
 
 
+def _hyperunit_request_headers() -> dict[str, str]:
+    """Заголовки для публичного API Unit (hyperunit.xyz). Без User-Agent часть CDN/WAF отвечает 403."""
+    return {
+        "User-Agent": "HyperliquidTraderPlatform/1.0 (+https://github.com/dashkordefi/hyperliquid-trader-platform)",
+        "Accept": "application/json",
+    }
+
+
 def sanitize_spot_meta(spot_meta: Dict[str, Any]) -> Dict[str, Any]:
     """
     В spotMeta иногда есть пары с индексами токенов за пределами len(tokens)
@@ -373,7 +381,9 @@ class HyperliquidAccount:
             )
             api_url = f"{base_url}/gen/ethereum/hyperliquid/eth/{self.address}"
 
-            response = requests.get(api_url, timeout=30)
+            response = requests.get(
+                api_url, timeout=30, headers=_hyperunit_request_headers()
+            )
             response.raise_for_status()
 
             result = response.json()
@@ -758,7 +768,8 @@ class HyperliquidAccount:
 
         address_resp = requests.get(
             f"{base_url}/gen/hyperliquid/ethereum/eth/{destination_eth_address}",
-            timeout=30
+            timeout=30,
+            headers=_hyperunit_request_headers(),
         )
         try:
             address_result = address_resp.json()
