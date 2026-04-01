@@ -1,0 +1,4 @@
+# Минимальный Worker для прокси к api.hyperunit.xyz (см. README.md в этой папке).
+name = "hyperunit-proxy"
+main = "src/index.js"
+compatibility_date = "2024-10-01"

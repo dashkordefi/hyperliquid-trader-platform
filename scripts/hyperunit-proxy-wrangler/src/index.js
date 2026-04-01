@@ -1,8 +1,5 @@
 /**
- * Дубликат логики: актуальный деплой через Wrangler — папка hyperunit-proxy-wrangler/README.md
- * (если в браузере Cloudflare нельзя править код в шаблоне Hello World).
- *
- * В Render: HYPERUNIT_MAINNET_API_URL=https://<имя>.workers.dev
+ * Прокси к https://api.hyperunit.xyz — обходит 403 с IP датацентров (Render и др.).
  */
 const UPSTREAM = "https://api.hyperunit.xyz";
 
