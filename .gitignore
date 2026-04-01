@@ -7,3 +7,4 @@ staticfiles/
 .env
 .env.*
 *.sqlite3
+.wrangler/
