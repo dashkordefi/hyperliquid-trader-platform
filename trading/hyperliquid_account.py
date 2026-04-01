@@ -3,10 +3,15 @@ Hyperliquid Account Manager
 Управление аккаунтом на Hyperliquid: депозиты, выводы и торговля
 """
 
+import logging
 import os
+import subprocess
+import tempfile
 import time
 from urllib.parse import urlparse
 from typing import Optional, Dict, Any, List
+
+logger = logging.getLogger(__name__)
 from collections.abc import Mapping
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
 from eth_account import Account
@@ -42,30 +47,117 @@ def _hyperunit_base_url_from_settings(*, testnet: bool) -> str:
 
 
 def _check_hyperunit_response(resp) -> None:
-    """403: IP/Cloudflare; см. _hyperunit_http_get_with_fallback (повтор на api.hyperunit.xyz)."""
+    """403: CF режет IP хостинга; см. curl_cffi + системный curl + fallback URL."""
     if resp.status_code == 403:
         got = getattr(resp, "url", None) or "(URL неизвестен)"
         raise Exception(
             f"Hyperunit API: 403 для запроса к {got}. "
-            "Если это api.hyperunit.xyz — CF режет IP хостинга. "
-            "Если Worker — попробуйте убрать HYPERUNIT_MAINNET_API_URL в Render (прямой запрос с curl-cffi) "
-            "или прокси не на workers.dev."
+            "Cloudflare режет IP датацентра (Render). Попробуйте прокси вне Cloudflare (VPS) "
+            "или HYPERUNIT_MAINNET_API_URL на сервис без CF-фильтра по IP."
         )
     resp.raise_for_status()
 
 
+class _HyperunitLiteResponse:
+    """Ответ как у requests для проверок _check_hyperunit_response / json()."""
+
+    __slots__ = ("status_code", "text", "url")
+
+    def __init__(self, status_code: int, text: str, url: str):
+        self.status_code = status_code
+        self.text = text
+        self.url = url
+
+    def json(self):
+        import json
+
+        return json.loads(self.text)
+
+    def raise_for_status(self):
+        if not (200 <= self.status_code < 300):
+            raise requests.HTTPError(f"{self.status_code} Client Error: {self.url}")
+
+
+def _hyperunit_system_curl_get(url: str, headers: dict[str, str]) -> Optional[_HyperunitLiteResponse]:
+    """
+    Системный curl (как в терминале на Mac) часто проходит CF, когда curl_cffi/requests — 403 с Render.
+    """
+    fd, path = tempfile.mkstemp(suffix=".hyperunit.out")
+    os.close(fd)
+    try:
+        cmd: List[str] = [
+            "curl",
+            "-sS",
+            "-o",
+            path,
+            "-w",
+            "%{http_code}",
+            "--max-time",
+            "30",
+            "--compressed",
+        ]
+        for k, v in headers.items():
+            cmd.extend(["-H", f"{k}: {v}"])
+        cmd.append(url)
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=35,
+            check=False,
+        )
+        raw = (proc.stdout or "").strip()
+        try:
+            http_code = int(raw)
+        except ValueError:
+            http_code = 0
+        with open(path, "rb") as f:
+            body = f.read().decode("utf-8", errors="replace")
+        return _HyperunitLiteResponse(http_code, body, url)
+    except FileNotFoundError:
+        logger.warning("hyperunit: системный curl не найден (PATH)")
+        return None
+    except Exception as e:
+        logger.warning("hyperunit: системный curl ошибка: %s", e)
+        return None
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 def _hyperunit_http_get(url: str, *, testnet: bool):
     """
-    GET к api.hyperunit или к Worker-прокси. Обычный requests с Render часто получает 403
-    (даже на *.workers.dev); curl_cffi имитирует Chrome.
+    GET к api.hyperunit или Worker: curl_cffi → при 403 системный curl → requests.
     """
     headers = _hyperunit_request_headers(testnet=testnet)
+    r: Any = None
     try:
         from curl_cffi import requests as creq
 
-        return creq.get(url, headers=headers, impersonate="chrome", timeout=30)
+        r = creq.get(url, headers=headers, impersonate="chrome", timeout=30)
     except ImportError:
-        return requests.get(url, headers=headers, timeout=30)
+        r = requests.get(url, headers=headers, timeout=30)
+    except Exception as e:
+        logger.warning("hyperunit: curl_cffi %s", e)
+        try:
+            r = requests.get(url, headers=headers, timeout=30)
+        except Exception:
+            r = None
+
+    if r is not None and getattr(r, "status_code", 0) != 403:
+        return r
+
+    r_curl = _hyperunit_system_curl_get(url, headers)
+    if r_curl is not None and r_curl.status_code != 403:
+        logger.info("hyperunit: ответ через системный curl (%s)", url[:72])
+        return r_curl
+    if r_curl is not None:
+        return r_curl
+    if r is not None:
+        return r
+    return requests.get(url, headers=headers, timeout=30)
 
 
 def _hyperunit_http_get_with_fallback(first_url: str, *, testnet: bool):
