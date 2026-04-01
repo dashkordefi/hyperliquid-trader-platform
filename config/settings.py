@@ -315,9 +315,11 @@ ARBITRUM_SEPOLIA_ARBISCAN_API_KEY = os.environ.get(
 )
 
 # Депозит ETH через Unit (Ethereum L1): spotSend / deposit_eth в hyperliquid_account.
+# Публичный RPC по умолчанию; при сбоях см. fallback в trading/funds_execution._web3_ethereum_l1.
+# Переопределение: ETHEREUM_MAINNET_RPC_URL=https://...
 ETHEREUM_MAINNET_RPC_URL = os.environ.get(
     "ETHEREUM_MAINNET_RPC_URL",
-    "https://eth.llamarpc.com",
+    "https://ethereum.publicnode.com",
 )
 ETHEREUM_SEPOLIA_RPC_URL = os.environ.get(
     "ETHEREUM_SEPOLIA_RPC_URL",

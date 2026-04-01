@@ -110,19 +110,48 @@ def _web3_arbitrum(testnet: bool) -> Web3:
     return w3
 
 
+# Запасные публичные RPC mainnet, если основной из settings недоступен (лимиты, IP, даунтайм).
+_ETHEREUM_MAINNET_RPC_FALLBACKS = (
+    "https://ethereum.publicnode.com",
+    "https://cloudflare-eth.com",
+    "https://1rpc.io/eth",
+    "https://eth.llamarpc.com",
+)
+
+
 def _web3_ethereum_l1(testnet: bool) -> Web3:
     """RPC Ethereum mainnet / Sepolia для депозита ETH через Unit."""
     from django.conf import settings
 
-    url = (
-        settings.ETHEREUM_SEPOLIA_RPC_URL
-        if testnet
-        else settings.ETHEREUM_MAINNET_RPC_URL
-    )
-    w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 120}))
-    if not w3.is_connected():
-        raise ConnectionError(f"Нет подключения к Ethereum RPC ({url}).")
-    return w3
+    if testnet:
+        urls = (settings.ETHEREUM_SEPOLIA_RPC_URL,)
+    else:
+        primary = (settings.ETHEREUM_MAINNET_RPC_URL or "").strip()
+        seen = set()
+        urls = []
+        for u in (primary, *_ETHEREUM_MAINNET_RPC_FALLBACKS):
+            if not u or u in seen:
+                continue
+            seen.add(u)
+            urls.append(u)
+
+    last_err: Optional[Exception] = None
+    for url in urls:
+        try:
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 120}))
+            if w3.is_connected():
+                if url != urls[0]:
+                    logger.info("Ethereum RPC: используется запасной endpoint %s", url)
+                return w3
+        except Exception as e:
+            last_err = e
+            logger.warning("Ethereum RPC недоступен %s: %s", url, e)
+
+    tried = ", ".join(urls)
+    msg = f"Нет подключения к Ethereum RPC (пробовали: {tried})."
+    if last_err:
+        msg += f" Последняя ошибка: {last_err}"
+    raise ConnectionError(msg)
 
 
 def _private_key_for_wallet(wallet: "TraderWallet") -> Optional[str]:
