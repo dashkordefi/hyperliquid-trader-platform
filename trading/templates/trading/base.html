@@ -27,17 +27,61 @@
         }
         a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
-        header {
+        .site-header {
             border-bottom: 1px solid var(--border);
-            padding: 0.75rem 1.25rem;
+            padding: 0.65rem 1rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
+            gap: 0.75rem;
             flex-wrap: wrap;
             background: var(--panel);
         }
-        header nav { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+        .site-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+        .site-header-left strong {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .site-header-left strong a { color: inherit; }
+        .header-wallet-line {
+            font-size: 0.82rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: min(52vw, 28rem);
+        }
+        .header-wallet-line code {
+            font-size: 0.78rem;
+            background: #21262d;
+            padding: 0.08rem 0.3rem;
+            border-radius: 4px;
+            color: var(--text);
+        }
+        .nav-drawer-toggle {
+            flex-shrink: 0;
+            padding: 0.4rem 0.55rem;
+            font-size: 1.1rem;
+            line-height: 1;
+            background: #21262d;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .nav-drawer-toggle:hover { background: #30363d; }
+        .site-header nav {
+            display: flex;
+            gap: 0.85rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
         main { padding: 1.25rem; max-width: 1200px; margin: 0 auto; }
         .muted { color: var(--muted); font-size: 0.9rem; }
         .card {
@@ -103,36 +147,113 @@
         .funds-feed-status.status-pending_mo { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
         .funds-feed-status.status-pending_blockchain,
         .funds-feed-status.status-pending_arbitrum_finalization { background: rgba(88, 166, 255, 0.12); color: var(--accent); }
-        .funds-bridge-banner {
-            background: linear-gradient(180deg, rgba(88, 166, 255, 0.18) 0%, rgba(13, 17, 23, 0.95) 100%);
-            border-bottom: 1px solid rgba(88, 166, 255, 0.35);
-            padding: 0.75rem 1.25rem;
-            font-size: 0.88rem;
-            line-height: 1.5;
+        .nav-drawer-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
         }
-        .funds-bridge-banner-inner {
-            max-width: 1200px;
-            margin: 0 auto;
+        .nav-drawer-backdrop.is-open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .nav-drawer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: min(380px, 92vw);
+            height: 100vh;
+            max-height: 100dvh;
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            z-index: 210;
+            transform: translateX(-100%);
+            transition: transform 0.22s ease;
+            overflow-y: auto;
+            box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
+            display: flex;
+            flex-direction: column;
+        }
+        .nav-drawer.is-open {
+            transform: translateX(0);
+        }
+        .nav-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+        .nav-drawer-close {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 1.5rem;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0.15rem 0.35rem;
+        }
+        .nav-drawer-close:hover { color: var(--text); }
+        .nav-drawer-body {
+            padding: 1rem 1.1rem 1.5rem;
+            flex: 1;
+        }
+        .nav-drawer-user { margin: 0 0 0.5rem; font-size: 0.95rem; }
+        .nav-group-chips { margin: 0.35rem 0 1rem; line-height: 1.6; }
+        .nav-group-chip {
+            display: inline-block;
+            padding: 0.12rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            margin: 0.15rem 0.35rem 0 0;
+            background: #21262d;
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .nav-drawer-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+        .nav-drawer-section:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+        .funds-bridge-banner {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid rgba(88, 166, 255, 0.28);
+            border-radius: 8px;
+            padding: 0.75rem 0.85rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
         }
         .funds-bridge-banner p {
             margin: 0 0 0.5rem;
         }
         .funds-bridge-banner p:last-child { margin-bottom: 0; }
         .funds-bridge-banner strong { color: var(--accent); }
+        .trade-network-switch { display: inline-flex; gap: 0.35rem; }
+        .trade-network-switch .hl-net-btn { padding: 0.35rem 0.65rem; font-size: 0.8rem; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <header>
-        <strong><a href="{% url 'landing' %}" style="color:inherit">HL Trader</a></strong>
+    <header class="site-header">
+        <div class="site-header-left">
+            <button type="button" class="nav-drawer-toggle" id="nav-drawer-open" aria-controls="nav-drawer" aria-expanded="false" aria-label="Меню и уведомления">☰</button>
+            <strong><a href="{% url 'landing' %}" style="color:inherit">HL Trader</a></strong>
+            {% if active_trader_wallet %}
+            <span class="header-wallet-line" title="{{ active_trader_wallet.address }}">
+                · {{ active_trader_wallet.label }}
+                <code>{{ active_trader_wallet.address|slice:":6" }}…{{ active_trader_wallet.address|slice:"-4:" }}</code>
+            </span>
+            {% endif %}
+        </div>
         <nav>
             {% if user.is_authenticated %}
-                <span class="muted">{{ user.username }}</span>
-                {% if user.groups.all %}
-                    <span class="muted">({{ user.groups.all|join:", " }})</span>
-                {% endif %}
                 {% if is_trader %}
-                    <a href="{% url 'wallet_select' %}">Кошельки</a>
                     <a href="{% url 'dashboard' %}">Торговля</a>
                     <a href="{% url 'trade_history' %}">История сделок</a>
                     <a href="{% url 'funds_history' %}">История депозитов/выводов</a>
@@ -150,59 +271,104 @@
             {% endif %}
         </nav>
     </header>
-    {% if is_trader and funds_bridge_banner_ops %}
-    <div id="funds-bridge-banner-root" class="funds-bridge-banner" role="status" aria-live="polite">
-        <div class="funds-bridge-banner-inner">
-            {% for op in funds_bridge_banner_ops %}
-            <p>
-                <strong>Вывод USDC на Arbitrum в пути</strong>
-                · кошелёк {{ op.wallet.label }} · <strong>{{ op.amount }}</strong> USDC.
-                Hyperliquid принял вывод; средства появятся на Arbiscan после финализации bridge.
-                Как только транзакция будет найдена в сети, это сообщение исчезнет; статус и ссылка на tx — в разделе «История депозитов/выводов».
-            </p>
-            {% endfor %}
+
+    <div id="nav-drawer-backdrop" class="nav-drawer-backdrop" hidden aria-hidden="true"></div>
+    <aside id="nav-drawer" class="nav-drawer" aria-hidden="true" aria-label="Боковая панель">
+        <div class="nav-drawer-header">
+            <span>Меню</span>
+            <button type="button" class="nav-drawer-close" id="nav-drawer-close" aria-label="Закрыть">×</button>
         </div>
-    </div>
+        <div class="nav-drawer-body">
+            {% if user.is_authenticated %}
+                <p class="nav-drawer-user">{{ user.username }}</p>
+                {% if user.groups.all %}
+                <div class="nav-group-chips">
+                    {% for g in user.groups.all %}
+                    <span class="nav-group-chip">{{ g.name }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <p class="muted" style="font-size:0.8rem;margin:0 0 0.75rem">Сеть Hyperliquid: <strong>{{ hl_network_mode }}</strong></p>
+            {% endif %}
+            {% if is_trader and funds_bridge_banner_ops %}
+            <div id="funds-bridge-banner-root" class="funds-bridge-banner" role="status" aria-live="polite">
+                {% for op in funds_bridge_banner_ops %}
+                <p>
+                    <strong>Вывод USDC на Arbitrum в пути</strong>
+                    · кошелёк {{ op.wallet.label }} · <strong>{{ op.amount }}</strong> USDC.
+                    Hyperliquid принял вывод; средства появятся на Arbiscan после финализации bridge.
+                    Как только транзакция будет найдена в сети, это сообщение исчезнет; статус и ссылка на tx — в разделе «История депозитов/выводов».
+                </p>
+                {% endfor %}
+            </div>
+            <script>
+            (function () {
+                var pollUrl = "{% url 'funds_bridge_poll' %}";
+                var intervalMs = 60000;
+                function getCookie(name) {
+                    var m = document.cookie.match("(^|;)\\s*" + name + "\\s*=\\s*([^;]+)");
+                    return m ? decodeURIComponent(m.pop()) : "";
+                }
+                function poll() {
+                    var token = getCookie("csrftoken");
+                    if (!token) return;
+                    fetch(pollUrl, {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: {
+                            "X-CSRFToken": token,
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                    })
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            if (!data || !data.ok) return;
+                            if (data.pending_bridge_count === 0) {
+                                var el = document.getElementById("funds-bridge-banner-root");
+                                if (el) el.remove();
+                                if (window._fundsBridgePollTimer) {
+                                    clearInterval(window._fundsBridgePollTimer);
+                                    window._fundsBridgePollTimer = null;
+                                }
+                            }
+                        })
+                        .catch(function () {});
+                }
+                setTimeout(poll, 4000);
+                window._fundsBridgePollTimer = setInterval(poll, intervalMs);
+            })();
+            </script>
+            {% endif %}
+            {% block nav_drawer_extra %}{% endblock %}
+        </div>
+    </aside>
+
     <script>
     (function () {
-        var pollUrl = "{% url 'funds_bridge_poll' %}";
-        var intervalMs = 60000;
-        function getCookie(name) {
-            var m = document.cookie.match("(^|;)\\s*" + name + "\\s*=\\s*([^;]+)");
-            return m ? decodeURIComponent(m.pop()) : "";
+        var drawer = document.getElementById("nav-drawer");
+        var backdrop = document.getElementById("nav-drawer-backdrop");
+        var openBtn = document.getElementById("nav-drawer-open");
+        var closeBtn = document.getElementById("nav-drawer-close");
+        function setOpen(open) {
+            if (!drawer || !backdrop) return;
+            drawer.classList.toggle("is-open", open);
+            backdrop.classList.toggle("is-open", open);
+            backdrop.hidden = !open;
+            drawer.setAttribute("aria-hidden", open ? "false" : "true");
+            if (openBtn) openBtn.setAttribute("aria-expanded", open ? "true" : "false");
+            document.body.style.overflow = open ? "hidden" : "";
         }
-        function poll() {
-            var token = getCookie("csrftoken");
-            if (!token) return;
-            fetch(pollUrl, {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "X-CSRFToken": token,
-                    "X-Requested-With": "XMLHttpRequest",
-                },
-            })
-                .then(function (r) {
-                    return r.json();
-                })
-                .then(function (data) {
-                    if (!data || !data.ok) return;
-                    if (data.pending_bridge_count === 0) {
-                        var el = document.getElementById("funds-bridge-banner-root");
-                        if (el) el.remove();
-                        if (window._fundsBridgePollTimer) {
-                            clearInterval(window._fundsBridgePollTimer);
-                            window._fundsBridgePollTimer = null;
-                        }
-                    }
-                })
-                .catch(function () {});
-        }
-        setTimeout(poll, 4000);
-        window._fundsBridgePollTimer = setInterval(poll, intervalMs);
+        function openDrawer() { setOpen(true); }
+        function closeDrawer() { setOpen(false); }
+        if (openBtn) openBtn.addEventListener("click", openDrawer);
+        if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
+        if (backdrop) backdrop.addEventListener("click", closeDrawer);
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") closeDrawer();
+        });
     })();
     </script>
-    {% endif %}
+
     <main class="{% block main_class %}{% endblock %}">
         {% if messages %}
             <ul class="messages">

@@ -1,6 +1,26 @@
 from .hl_network import hl_testnet_enabled
 from .models import FundsOperationRequest, TraderWallet
 
+# Совпадает с trading.views.SESSION_WALLET_KEY
+_SESSION_WALLET_KEY = "active_trader_wallet_id"
+
+
+def active_trader_wallet_ctx(request):
+    """Активный кошелёк из сессии — для строки в шапке рядом с HL Trader."""
+    out = {"active_trader_wallet": None}
+    if not request.user.is_authenticated:
+        return out
+    wid = request.session.get(_SESSION_WALLET_KEY)
+    if not wid:
+        return out
+    g = set(request.user.groups.values_list("name", flat=True))
+    if not (request.user.is_superuser or "traders" in g):
+        return out
+    w = TraderWallet.objects.filter(pk=wid, user=request.user).first()
+    if w:
+        out["active_trader_wallet"] = w
+    return out
+
 
 def funds_operation_feed(request):
     """

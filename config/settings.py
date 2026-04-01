@@ -177,6 +177,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "trading.context_processors.roles",
+                "trading.context_processors.active_trader_wallet_ctx",
                 "trading.context_processors.funds_operation_feed",
                 "trading.context_processors.hyperliquid_network",
             ],
