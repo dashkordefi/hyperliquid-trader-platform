@@ -23,13 +23,6 @@ from hyperliquid.utils.signing import (
     sign_spot_transfer_action,
 )
 
-# Демо: без запроса к api.hyperunit — фиксированный Unit deposit (L1 ETH) для одного HL-кошелька (mainnet).
-# Убрать перед продом, если нужен реальный адрес из API.
-_DEMO_ETH_DEPOSIT_HL_WALLET_LOWER = "0x59c304edd245097bea709ead4198e1c50b320a68"
-_DEMO_ETH_DEPOSIT_UNIT_ADDRESS = Web3.to_checksum_address(
-    "0x7cf4076a443133D8C5B78d8a4D3Ef1c440Bc7883"
-)
-
 
 def _hyperunit_base_url_from_settings(*, testnet: bool) -> str:
     from django.conf import settings
@@ -423,18 +416,6 @@ class HyperliquidAccount:
                 "status": "OK"
             }
         """
-        if (
-            self.hyperliquid_chain == "Mainnet"
-            and self.address.lower() == _DEMO_ETH_DEPOSIT_HL_WALLET_LOWER
-        ):
-            return {
-                "success": True,
-                "address": _DEMO_ETH_DEPOSIT_UNIT_ADDRESS,
-                "signatures": {},
-                "status": "OK",
-                "account_address": self.address,
-            }
-
         try:
             tn = self.hyperliquid_chain == "Testnet"
             base_url = _hyperunit_base_url_from_settings(testnet=tn)
