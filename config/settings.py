@@ -326,6 +326,18 @@ ETHEREUM_SEPOLIA_RPC_URL = os.environ.get(
     "https://rpc.sepolia.org",
 )
 
+# Базовый URL API Unit (hyperunit.xyz). С IP датацентров (Render и др.) Cloudflare часто
+# отвечает 403 даже с Origin/Referer — тогда разверните прокси (scripts/hyperunit-proxy-worker.js)
+# и укажите здесь origin прокси, без завершающего слэша.
+HYPERUNIT_MAINNET_API_URL = os.environ.get(
+    "HYPERUNIT_MAINNET_API_URL",
+    "https://api.hyperunit.xyz",
+).rstrip("/")
+HYPERUNIT_TESTNET_API_URL = os.environ.get(
+    "HYPERUNIT_TESTNET_API_URL",
+    "https://api.hyperunit-testnet.xyz",
+).rstrip("/")
+
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 

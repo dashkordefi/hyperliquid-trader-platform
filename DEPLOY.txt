@@ -17,6 +17,9 @@
    python manage.py init_roles
 7. Депозит ETH (Unit / L1): при ошибке «Нет подключения к Ethereum RPC» задайте в Environment
    свой надёжный endpoint: ETHEREUM_MAINNET_RPC_URL=https://… (Alchemy, Infura, QuickNode и т.д.).
+8. Hyperunit API (адрес депозита ETH): если в логах 403 с api.hyperunit.xyz — Cloudflare режет IP
+   хостинга. Разверните бесплатный прокси: scripts/hyperunit-proxy-worker.js (Cloudflare Workers),
+   затем HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev (без слэша в конце).
 
 Hyperliquid testnet (локально или в Environment)
 ===============================================

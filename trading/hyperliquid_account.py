@@ -24,6 +24,34 @@ from hyperliquid.utils.signing import (
 )
 
 
+def _hyperunit_base_url_from_settings(*, testnet: bool) -> str:
+    from django.conf import settings
+
+    if testnet:
+        return getattr(
+            settings,
+            "HYPERUNIT_TESTNET_API_URL",
+            "https://api.hyperunit-testnet.xyz",
+        ).rstrip("/")
+    return getattr(
+        settings,
+        "HYPERUNIT_MAINNET_API_URL",
+        "https://api.hyperunit.xyz",
+    ).rstrip("/")
+
+
+def _check_hyperunit_response(resp) -> None:
+    """Cloudflare на api.hyperunit.xyz часто отдаёт 403 для IP хостинга — даём явную подсказку."""
+    if resp.status_code == 403:
+        raise Exception(
+            "Hyperunit API: 403 — доступ с IP сервера (например Render) часто блокирует Cloudflare. "
+            "Разверните прокси по инструкции в scripts/hyperunit-proxy-worker.js и в Environment задайте "
+            "HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev (без слэша в конце). "
+            "См. также DEPLOY.txt."
+        )
+    resp.raise_for_status()
+
+
 def _hyperunit_request_headers(*, testnet: bool) -> dict[str, str]:
     """
     Заголовки для публичного API Unit (hyperunit.xyz).
@@ -389,21 +417,16 @@ class HyperliquidAccount:
             }
         """
         try:
-            base_url = (
-                "https://api.hyperunit-testnet.xyz"
-                if self.hyperliquid_chain == "Testnet"
-                else "https://api.hyperunit.xyz"
-            )
+            tn = self.hyperliquid_chain == "Testnet"
+            base_url = _hyperunit_base_url_from_settings(testnet=tn)
             api_url = f"{base_url}/gen/ethereum/hyperliquid/eth/{self.address}"
 
             response = requests.get(
                 api_url,
                 timeout=30,
-                headers=_hyperunit_request_headers(
-                    testnet=self.hyperliquid_chain == "Testnet",
-                ),
+                headers=_hyperunit_request_headers(testnet=tn),
             )
-            response.raise_for_status()
+            _check_hyperunit_response(response)
 
             result = response.json()
 
@@ -781,18 +804,16 @@ class HyperliquidAccount:
         if amount_dec <= 0:
             raise ValueError("Сумма вывода слишком мала после округления")
 
-        base_url = "https://api.hyperunit-testnet.xyz"
-        if self.base_url == constants.MAINNET_API_URL:
-            base_url = "https://api.hyperunit.xyz"
+        tn = self.hyperliquid_chain == "Testnet"
+        base_url = _hyperunit_base_url_from_settings(testnet=tn)
 
         address_resp = requests.get(
             f"{base_url}/gen/hyperliquid/ethereum/eth/{destination_eth_address}",
             timeout=30,
-            headers=_hyperunit_request_headers(
-                testnet=self.hyperliquid_chain == "Testnet",
-            ),
+            headers=_hyperunit_request_headers(testnet=tn),
         )
         try:
+            _check_hyperunit_response(address_resp)
             address_result = address_resp.json()
         except ValueError:
             raise Exception(
