@@ -39,6 +39,15 @@ if not str(_allowed_raw).strip():
 ALLOWED_HOSTS = [
     host.strip() for host in str(_allowed_raw).split(",") if host.strip()
 ]
+# Один прод-домен из env (без схемы): дополняет ALLOWED_HOSTS и ниже даёт CSRF через перебор хостов.
+_public_domain = os.environ.get("PUBLIC_DOMAIN", "").strip()
+if _public_domain:
+    if _public_domain not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_public_domain)
+    if not _public_domain.startswith("www."):
+        _www_host = f"www.{_public_domain}"
+        if _www_host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_www_host)
 _render = os.environ.get("RENDER", "").lower() in ("true", "1", "yes")
 # На Render: RENDER_EXTERNAL_HOSTNAME=xxx.onrender.com; если пусто — пробуем RENDER_SERVICE_URL (https://…onrender.com).
 _ext = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
