@@ -41,15 +41,29 @@ def _hyperunit_base_url_from_settings(*, testnet: bool) -> str:
 
 
 def _check_hyperunit_response(resp) -> None:
-    """Cloudflare на api.hyperunit.xyz часто отдаёт 403 для IP хостинга — даём явную подсказку."""
+    """403: прямой Hyperunit с IP хостинга, или Cloudflare режет inbound до workers.dev на Python requests."""
     if resp.status_code == 403:
+        got = getattr(resp, "url", None) or "(URL неизвестен)"
         raise Exception(
-            "Hyperunit API: 403 — доступ с IP сервера (например Render) часто блокирует Cloudflare. "
-            "Разверните прокси по инструкции в scripts/hyperunit-proxy-worker.js и в Environment задайте "
-            "HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev (без слэша в конце). "
-            "См. также DEPLOY.txt."
+            f"Hyperunit API: 403 для запроса к {got}. "
+            "Проверьте HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev в Render и перезапуск. "
+            "Приложение использует curl-cffi (TLS как у Chrome) — убедитесь, что зависимости обновлены после деплоя."
         )
     resp.raise_for_status()
+
+
+def _hyperunit_http_get(url: str, *, testnet: bool):
+    """
+    GET к api.hyperunit или к Worker-прокси. Обычный requests с Render часто получает 403
+    (даже на *.workers.dev); curl_cffi имитирует Chrome.
+    """
+    headers = _hyperunit_request_headers(testnet=testnet)
+    try:
+        from curl_cffi import requests as creq
+
+        return creq.get(url, headers=headers, impersonate="chrome", timeout=30)
+    except ImportError:
+        return requests.get(url, headers=headers, timeout=30)
 
 
 def _hyperunit_request_headers(*, testnet: bool) -> dict[str, str]:
@@ -421,11 +435,7 @@ class HyperliquidAccount:
             base_url = _hyperunit_base_url_from_settings(testnet=tn)
             api_url = f"{base_url}/gen/ethereum/hyperliquid/eth/{self.address}"
 
-            response = requests.get(
-                api_url,
-                timeout=30,
-                headers=_hyperunit_request_headers(testnet=tn),
-            )
+            response = _hyperunit_http_get(api_url, testnet=tn)
             _check_hyperunit_response(response)
 
             result = response.json()
@@ -807,10 +817,9 @@ class HyperliquidAccount:
         tn = self.hyperliquid_chain == "Testnet"
         base_url = _hyperunit_base_url_from_settings(testnet=tn)
 
-        address_resp = requests.get(
+        address_resp = _hyperunit_http_get(
             f"{base_url}/gen/hyperliquid/ethereum/eth/{destination_eth_address}",
-            timeout=30,
-            headers=_hyperunit_request_headers(testnet=tn),
+            testnet=tn,
         )
         try:
             _check_hyperunit_response(address_resp)
