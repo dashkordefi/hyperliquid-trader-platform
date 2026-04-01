@@ -23,11 +23,6 @@
    Workers нельзя менять код — используйте только этот способ. Затем
    HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev (без слэша в конце).
    Запросы к Worker с Render идут через curl-cffi (TLS как у Chrome); зависимость в requirements.txt.
-9. Депозит ETH при 403 Hyperunit с IP хостинга: один раз откройте в браузере (с Mac)
-   URL вида .../gen/ethereum/hyperliquid/eth/0xВАШ_HL и скопируйте "address" из JSON.
-   В Render → Environment добавьте одной строкой (пример формата):
-   HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON={"0xвашhl":"0xадресunit"}
-   Ключ — адрес аккаунта HL (регистр не важен). После сохранения депозит обходит API Unit.
 
 Hyperliquid testnet (локально или в Environment)
 ===============================================

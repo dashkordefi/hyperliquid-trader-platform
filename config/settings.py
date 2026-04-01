@@ -338,18 +338,6 @@ HYPERUNIT_TESTNET_API_URL = os.environ.get(
     "https://api.hyperunit-testnet.xyz",
 ).rstrip("/")
 
-# Если api.hyperunit.xyz с IP сервера даёт 403 (Cloudflare), адрес L1 для депозита ETH
-# можно задать вручную — тот же JSON, что открывается в браузере с Mac.
-# Ключ: адрес аккаунта Hyperliquid (0x...), значение: "address" из ответа Unit.
-HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON = os.environ.get(
-    "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON",
-    "",
-).strip()
-HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON_TESTNET = os.environ.get(
-    "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON_TESTNET",
-    "",
-).strip()
-
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 

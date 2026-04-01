@@ -3,7 +3,6 @@ Hyperliquid Account Manager
 Управление аккаунтом на Hyperliquid: депозиты, выводы и торговля
 """
 
-import json
 import logging
 import os
 import subprocess
@@ -159,57 +158,6 @@ def _hyperunit_http_get(url: str, *, testnet: bool):
     if r is not None:
         return r
     return requests.get(url, headers=headers, timeout=30)
-
-
-def _hyperunit_eth_deposit_from_env_map(account: "HyperliquidAccount") -> Optional[Dict[str, Any]]:
-    """
-    Обход 403 Hyperunit с датацентра: адрес депозита ETH из Environment (как с Mac в браузере).
-    HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON — mainnet, ..._TESTNET — testnet.
-    Формат: {"0xhl...":"0xunit..."} (ключ HL в lower или как в ответе API).
-    """
-    from django.conf import settings
-
-    testnet = account.hyperliquid_chain == "Testnet"
-    raw = (
-        getattr(settings, "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON_TESTNET", "")
-        if testnet
-        else getattr(settings, "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON", "")
-    )
-    raw = (raw or "").strip()
-    if not raw:
-        return None
-    try:
-        m = json.loads(raw)
-    except json.JSONDecodeError:
-        logger.warning("hyperunit: невалидный JSON в HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_*")
-        return None
-    if not isinstance(m, dict):
-        return None
-    want = account.address.lower()
-    unit: Optional[str] = None
-    if want in m:
-        val = m.get(want)
-        unit = val if isinstance(val, str) else None
-    if unit is None:
-        for k, v in m.items():
-            if isinstance(k, str) and isinstance(v, str) and k.lower() == want:
-                unit = v
-                break
-    if not unit:
-        return None
-    if not Web3.is_address(unit):
-        logger.warning("hyperunit: значение в map не Ethereum-адрес")
-        return None
-    logger.info(
-        "hyperunit: депозит ETH — адрес из HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP (без запроса к API)"
-    )
-    return {
-        "success": True,
-        "address": Web3.to_checksum_address(unit),
-        "signatures": {},
-        "status": "OK",
-        "account_address": account.address,
-    }
 
 
 def _hyperunit_http_get_with_fallback(first_url: str, *, testnet: bool):
@@ -598,10 +546,6 @@ class HyperliquidAccount:
             }
         """
         try:
-            from_env = _hyperunit_eth_deposit_from_env_map(self)
-            if from_env is not None:
-                return from_env
-
             tn = self.hyperliquid_chain == "Testnet"
             base_url = _hyperunit_base_url_from_settings(testnet=tn)
             api_url = f"{base_url}/gen/ethereum/hyperliquid/eth/{self.address}"
