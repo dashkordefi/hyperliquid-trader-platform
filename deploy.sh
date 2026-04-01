@@ -231,7 +231,8 @@ ENVEOF
 chmod +x "$PROJECT_DIR/scripts/migrate_with_env.sh"
 chown appuser:appuser "$PROJECT_DIR/scripts/migrate_with_env.sh" 2>/dev/null || true
 # Один путь с .env: иначе migrate без DATABASE_URL бьёт в sqlite, Postgres пустой → relation auth_user does not exist
-sudo -u appuser "$PROJECT_DIR/scripts/migrate_with_env.sh"
+# Явно через bash: CRLF/shebang на сервере не даёт «command not found»
+sudo -u appuser bash "$PROJECT_DIR/scripts/migrate_with_env.sh"
 # Чтобы nginx (www-data) мог отдавать статику из STATIC_ROOT
 chmod -R o+rX "$PROJECT_DIR/staticfiles" 2>/dev/null || true
 chmod o+x /opt "/opt/$REPO_DIR" 2>/dev/null || true

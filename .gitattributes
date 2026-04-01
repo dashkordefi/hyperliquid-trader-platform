@@ -1,0 +1,4 @@
+# Скрипты только с LF — иначе на Linux shebang ломается (command not found).
+*.sh text eol=lf
+deploy.sh text eol=lf
+build.sh text eol=lf

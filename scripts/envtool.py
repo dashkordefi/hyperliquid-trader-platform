@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import os
 import re
 import shlex
 import sys
@@ -86,6 +87,7 @@ def cmd_export(path: Path) -> None:
 def cmd_materialize(path: Path) -> None:
     if not path.is_file():
         return
+    prev_stat = path.stat()
     path.parent.mkdir(parents=True, exist_ok=True)
     raw_lines = path.read_text(encoding="utf-8").splitlines()
     out_lines: list[str] = []
@@ -107,6 +109,11 @@ def cmd_materialize(path: Path) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text("\n".join(out_lines) + ("\n" if out_lines else ""), encoding="utf-8")
     tmp.replace(path)
+    # После replace владелец мог стать root (если вызвали sudo без -u appuser) — вернём как было.
+    try:
+        os.chown(path, prev_stat.st_uid, prev_stat.st_gid)
+    except OSError:
+        pass
 
 
 def cmd_append(path: Path, key: str, value: str) -> None:
