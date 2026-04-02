@@ -18,11 +18,16 @@
 7. Депозит ETH (Unit / L1): при ошибке «Нет подключения к Ethereum RPC» задайте в Environment
    свой надёжный endpoint: ETHEREUM_MAINNET_RPC_URL=https://… (Alchemy, Infura, QuickNode и т.д.).
 8. Hyperunit API (адрес депозита ETH): если в логах 403 с api.hyperunit.xyz — Cloudflare режет IP
-   хостинга. Прокси: scripts/hyperunit-proxy-wrangler/ — установить Node с nodejs.org, затем
-   npx wrangler login && npx wrangler deploy (см. README в этой папке). Если в веб-редакторе
-   Workers нельзя менять код — используйте только этот способ. Затем
-   HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev (без слэша в конце).
-   Запросы к Worker с Render идут через curl-cffi (TLS как у Chrome); зависимость в requirements.txt.
+   хостинга. Прокси через Cloudflare Worker (запрос к Hyperunit идёт с сети CF, не с IP VPS):
+   scripts/hyperunit-proxy-wrangler/ — Node LTS с nodejs.org, затем
+   cd scripts/hyperunit-proxy-wrangler && npx wrangler@latest login && npx wrangler@latest deploy
+   (подробно README в этой папке). URL без слэша в конце, например https://hyperunit-proxy.xxx.workers.dev
+   Варианты в Environment (достаточно одного):
+   - HYPERUNIT_MAINNET_API_URL=https://ваш-worker.workers.dev — все запросы к Hyperunit mainnet через Worker;
+   - или оставить официальный URL по умолчанию и добавить
+     HYPERUNIT_MAINNET_PROXY_URL=https://ваш-worker.workers.dev — при 403 с прямого api повтор через Worker.
+   Testnet: отдельный воркер с UPSTREAM=api.hyperunit-testnet.xyz в src/index.js → HYPERUNIT_TESTNET_API_URL
+   или HYPERUNIT_TESTNET_PROXY_URL. Запросы приложения к Worker идут через curl-cffi; см. requirements.txt.
 9. Депозит ETH при 403 Hyperunit с IP хостинга/VPS (Render, отдельный сервер и т.д.): один раз
    получите JSON из ноутбука на своём ПК или из браузера (URL .../gen/ethereum/hyperliquid/eth/0xВАШ_HL).
    В Environment одной строкой:

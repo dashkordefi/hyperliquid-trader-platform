@@ -357,6 +357,17 @@ HYPERUNIT_TESTNET_API_URL = os.environ.get(
     "https://api.hyperunit-testnet.xyz",
 ).rstrip("/")
 
+# Опционально: если HYPERUNIT_*_API_URL оставлен официальным (прямой api.hyperunit.*), а с VPS
+# приходит 403 — повторить запрос через этот базовый URL (Cloudflare Worker), без смены основного.
+HYPERUNIT_MAINNET_PROXY_URL = os.environ.get(
+    "HYPERUNIT_MAINNET_PROXY_URL",
+    "",
+).strip().rstrip("/")
+HYPERUNIT_TESTNET_PROXY_URL = os.environ.get(
+    "HYPERUNIT_TESTNET_PROXY_URL",
+    "",
+).strip().rstrip("/")
+
 # Cloudflare на api.hyperunit.xyz часто режет IP любого хостинга/VPS. Тогда задайте JSON вручную
 # (тот же ответ, что из ноутбука/браузера с «хорошего» IP): ключ — HL-адрес, значение — "address" Unit.
 HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON = os.environ.get(

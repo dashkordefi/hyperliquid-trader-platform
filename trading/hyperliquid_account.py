@@ -104,8 +104,9 @@ def _check_hyperunit_response(resp) -> None:
         got = getattr(resp, "url", None) or "(URL неизвестен)"
         raise Exception(
             f"Hyperunit API: 403 для запроса к {got}. "
-            "Cloudflare режет IP хостинга/VPS. Задайте HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON "
-            "(JSON из ноутбука/браузера: HL → Unit address) — см. DEPLOY.txt."
+            "Cloudflare режет IP хостинга/VPS: задеплойте Worker (scripts/hyperunit-proxy-wrangler) и "
+            "задайте HYPERUNIT_MAINNET_API_URL или HYPERUNIT_MAINNET_PROXY_URL — см. DEPLOY.txt; "
+            "либо HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON (адрес из ноутбука/браузера)."
         )
     resp.raise_for_status()
 
@@ -212,25 +213,45 @@ def _hyperunit_http_get(url: str, *, testnet: bool):
     return requests.get(url, headers=headers, timeout=30)
 
 
+def _hyperunit_host_is_canonical_hyperunit(url: str, *, testnet: bool) -> bool:
+    host = urlparse(url).netloc.lower()
+    if testnet:
+        return host == "api.hyperunit-testnet.xyz"
+    return host == "api.hyperunit.xyz"
+
+
 def _hyperunit_http_get_with_fallback(first_url: str, *, testnet: bool):
     """
-    Сначала URL из settings (часто Cloudflare Worker). Inbound на *.workers.dev иногда даёт 403
-    с IP хостинга (Render) даже при curl-cffi — тогда повторяем на официальный api.hyperunit.* с тем же path.
+    Сначала запрос на URL из settings (официальный api или Cloudflare Worker).
+
+    Если ответ 403 и хост — официальный api.hyperunit.* (запрос с IP VPS), повтор с тем же path
+    на HYPERUNIT_*_PROXY_URL (Worker), если задан: исходящий запрос к upstream идёт с edge Cloudflare.
+
+    Если первый запрос уже шёл на Worker/кастомный хост — повтор на прямой api с того же VPS бессмыслен
+    (снова 403), второй раз не дергаем.
     """
+    from django.conf import settings
+
     r = _hyperunit_http_get(first_url, testnet=testnet)
     if r.status_code != 403:
         return r
     parsed = urlparse(first_url)
     path_qs = parsed.path + (f"?{parsed.query}" if parsed.query else "")
-    canonical = (
-        "https://api.hyperunit-testnet.xyz"
-        if testnet
-        else "https://api.hyperunit.xyz"
-    ).rstrip("/")
-    second_url = canonical + path_qs
-    if second_url == first_url:
+
+    if not _hyperunit_host_is_canonical_hyperunit(first_url, testnet=testnet):
         return r
-    return _hyperunit_http_get(second_url, testnet=testnet)
+
+    proxy_base = (
+        getattr(settings, "HYPERUNIT_MAINNET_PROXY_URL", "")
+        if not testnet
+        else getattr(settings, "HYPERUNIT_TESTNET_PROXY_URL", "")
+    )
+    proxy_base = (proxy_base or "").strip().rstrip("/")
+    if not proxy_base:
+        return r
+
+    proxy_url = proxy_base + path_qs
+    return _hyperunit_http_get(proxy_url, testnet=testnet)
 
 
 def _hyperunit_request_headers(*, testnet: bool) -> dict[str, str]:
