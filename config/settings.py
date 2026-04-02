@@ -357,6 +357,17 @@ HYPERUNIT_TESTNET_API_URL = os.environ.get(
     "https://api.hyperunit-testnet.xyz",
 ).rstrip("/")
 
+# Cloudflare на api.hyperunit.xyz часто режет IP любого хостинга/VPS. Тогда задайте JSON вручную
+# (тот же ответ, что из ноутбука/браузера с «хорошего» IP): ключ — HL-адрес, значение — "address" Unit.
+HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON = os.environ.get(
+    "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON",
+    "",
+).strip()
+HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON_TESTNET = os.environ.get(
+    "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON_TESTNET",
+    "",
+).strip()
+
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 

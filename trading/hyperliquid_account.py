@@ -3,6 +3,7 @@ Hyperliquid Account Manager
 Управление аккаунтом на Hyperliquid: депозиты, выводы и торговля
 """
 
+import json
 import logging
 import os
 import subprocess
@@ -46,14 +47,65 @@ def _hyperunit_base_url_from_settings(*, testnet: bool) -> str:
     ).rstrip("/")
 
 
+def _hyperunit_eth_deposit_from_env_map(account: "HyperliquidAccount") -> Optional[Dict[str, Any]]:
+    """
+    Обход 403 Hyperunit с IP хостинга/VPS: адрес L1 из ENV (как в JSON из ноутбука или браузера).
+    HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON — mainnet; ..._TESTNET — testnet.
+    Формат: {"0xАдресHL":"0xАдресUnitDeposit"}
+    """
+    from django.conf import settings
+
+    testnet = account.hyperliquid_chain == "Testnet"
+    raw = (
+        getattr(settings, "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON_TESTNET", "")
+        if testnet
+        else getattr(settings, "HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON", "")
+    )
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        m = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("hyperunit: невалидный JSON в HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_*")
+        return None
+    if not isinstance(m, dict):
+        return None
+    want = account.address.lower()
+    unit: Optional[str] = None
+    if want in m:
+        val = m.get(want)
+        unit = val if isinstance(val, str) else None
+    if unit is None:
+        for k, v in m.items():
+            if isinstance(k, str) and isinstance(v, str) and k.lower() == want:
+                unit = v
+                break
+    if not unit:
+        return None
+    if not Web3.is_address(unit):
+        logger.warning("hyperunit: в map указан некорректный адрес Unit")
+        return None
+    logger.info(
+        "hyperunit: депозит ETH — адрес из HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP (без HTTP к API)"
+    )
+    return {
+        "success": True,
+        "address": Web3.to_checksum_address(unit),
+        "signatures": {},
+        "status": "OK",
+        "account_address": account.address,
+    }
+
+
 def _check_hyperunit_response(resp) -> None:
     """403: CF режет IP хостинга; см. curl_cffi + системный curl + fallback URL."""
     if resp.status_code == 403:
         got = getattr(resp, "url", None) or "(URL неизвестен)"
         raise Exception(
             f"Hyperunit API: 403 для запроса к {got}. "
-            "Cloudflare режет IP датацентра (Render). Попробуйте прокси вне Cloudflare (VPS) "
-            "или HYPERUNIT_MAINNET_API_URL на сервис без CF-фильтра по IP."
+            "Cloudflare режет IP хостинга/VPS. Задайте HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON "
+            "(JSON из ноутбука/браузера: HL → Unit address) — см. DEPLOY.txt."
         )
     resp.raise_for_status()
 
@@ -546,6 +598,10 @@ class HyperliquidAccount:
             }
         """
         try:
+            from_env = _hyperunit_eth_deposit_from_env_map(self)
+            if from_env is not None:
+                return from_env
+
             tn = self.hyperliquid_chain == "Testnet"
             base_url = _hyperunit_base_url_from_settings(testnet=tn)
             api_url = f"{base_url}/gen/ethereum/hyperliquid/eth/{self.address}"
