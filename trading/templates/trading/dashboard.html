@@ -45,6 +45,7 @@
     .trade-layout {
         display: block;
         max-width: 100%;
+        margin-top: 0;
     }
     .trade-center {
         min-width: 0;
@@ -52,24 +53,54 @@
         flex-direction: column;
         gap: 0.55rem;
     }
-    .trade-market-order-row {
+    .trade-main-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(260px, 320px) minmax(0, 1fr);
-        gap: 0.5rem 0.75rem;
-        align-items: stretch;
-        margin-bottom: 0.65rem;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+        gap: 0.65rem 0.85rem;
+        align-items: start;
+    }
+    .trade-main-left {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+    }
+    .trade-left-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
         position: sticky;
         top: 0;
         z-index: 15;
+        background: var(--bg, #0d1117);
+        padding-bottom: 0.25rem;
+    }
+    .trade-main-right {
+        min-width: 0;
+        position: sticky;
+        top: 0.45rem;
+        z-index: 12;
+        align-self: start;
+    }
+    .trade-main-right .trade-panel {
+        width: 100%;
     }
     @media (max-width: 1180px) {
-        .trade-market-order-row {
+        .trade-main-grid {
             grid-template-columns: 1fr;
+        }
+        .trade-main-right {
+            position: static;
+        }
+        .trade-left-stack {
+            position: static;
+            background: transparent;
+            padding-bottom: 0;
         }
     }
     .trade-orderbook-panel {
-        max-height: min(70vh, 520px);
-        min-height: 280px;
+        max-height: min(85vh, 720px);
+        min-height: 320px;
     }
     .trade-orderbook-panel .orderbook-head {
         display: flex;
@@ -423,7 +454,9 @@
     </div>
 </div>
 
-<div class="trade-market-order-row">
+<div class="trade-main-grid">
+<div class="trade-main-left">
+<div class="trade-left-stack">
 <div class="trade-panel trade-instrument-bar" aria-label="Рынок">
     <div class="trade-order-block">
     <h3>Рынок</h3>
@@ -449,27 +482,6 @@
         </datalist>
         <p class="trade-apply-row" style="margin-bottom:0"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
     </form>
-    </div>
-</div>
-
-<div class="trade-panel trade-orderbook-panel" id="orderbook-panel"
-     data-api-url="{% url 'orderbook_api' %}"
-     data-market="{{ market_type }}"
-     data-symbol="{{ symbol }}"
-     aria-label="Стакан">
-    <div class="trade-order-block">
-        <div class="orderbook-head">
-            <h3 style="margin:0">Стакан</h3>
-            <span class="muted" style="font-size:0.72rem" id="orderbook-coin">…</span>
-        </div>
-        <p class="orderbook-muted" id="orderbook-status">Загрузка…</p>
-        <div class="orderbook-col-labels"><span>Размер</span><span>Цена</span></div>
-        <div class="orderbook-asks-wrap" id="orderbook-asks" aria-label="Заявки на продажу"></div>
-        <div class="orderbook-spread-line" id="orderbook-spread-line">
-            <span class="orderbook-mid" id="orderbook-mid">—</span>
-            <span class="orderbook-spread-txt" id="orderbook-spread-txt"></span>
-        </div>
-        <div class="orderbook-bids-wrap" id="orderbook-bids" aria-label="Заявки на покупку"></div>
     </div>
 </div>
 
@@ -728,6 +740,32 @@
             {% endif %}
         </div>
     </div>
+</div>
+</div>
+
+<aside class="trade-main-right" aria-label="Стакан справа">
+<div class="trade-panel trade-orderbook-panel" id="orderbook-panel"
+     data-api-url="{% url 'orderbook_api' %}"
+     data-market="{{ market_type }}"
+     data-symbol="{{ symbol }}"
+     aria-label="Стакан">
+    <div class="trade-order-block">
+        <div class="orderbook-head">
+            <h3 style="margin:0">Стакан</h3>
+            <span class="muted" style="font-size:0.72rem" id="orderbook-coin">…</span>
+        </div>
+        <p class="orderbook-muted" id="orderbook-status">Загрузка…</p>
+        <div class="orderbook-col-labels"><span>Размер</span><span>Цена</span></div>
+        <div class="orderbook-asks-wrap" id="orderbook-asks" aria-label="Заявки на продажу"></div>
+        <div class="orderbook-spread-line" id="orderbook-spread-line">
+            <span class="orderbook-mid" id="orderbook-mid">—</span>
+            <span class="orderbook-spread-txt" id="orderbook-spread-txt"></span>
+        </div>
+        <div class="orderbook-bids-wrap" id="orderbook-bids" aria-label="Заявки на покупку"></div>
+    </div>
+</div>
+</aside>
+
 </div>
 
 {% if hl_trading_key_configured %}
