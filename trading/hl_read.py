@@ -1138,3 +1138,98 @@ def fetch_user_fills_rows(address: str) -> dict[str, Any]:
     except HyperliquidInfoError as e:
         out["error"] = str(e)
     return out
+
+
+def fetch_l2_book_for_dashboard(coin: str) -> dict[str, Any]:
+    """
+    Снимок стакана l2Book для UI: bids/asks (лучшие уровни у спреда), mid, spread.
+    """
+    try:
+        client = _info_client()
+        raw = client.l2_book(coin)
+    except HyperliquidInfoError as e:
+        return {"ok": False, "error": str(e)}
+    except Exception as e:
+        logger.exception("fetch_l2_book_for_dashboard")
+        return {"ok": False, "error": str(e)}
+
+    levels = raw.get("levels") or []
+    if len(levels) < 2:
+        return {"ok": False, "error": "Пустой ответ стакана"}
+
+    def parse_side(side_rows: Any) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        if not isinstance(side_rows, list):
+            return rows
+        for row in side_rows:
+            if not isinstance(row, dict):
+                continue
+            px = row.get("px")
+            sz = row.get("sz")
+            if px is None or sz is None:
+                continue
+            try:
+                pxd = Decimal(str(px))
+                szd = Decimal(str(sz))
+            except (InvalidOperation, TypeError, ValueError):
+                continue
+            rows.append(
+                {
+                    "px": str(px),
+                    "sz": str(sz),
+                    "n": int(row.get("n") or 0),
+                    "_pxd": pxd,
+                    "_szd": szd,
+                }
+            )
+        return rows
+
+    bids = parse_side(levels[0])
+    asks = parse_side(levels[1])
+
+    bids.sort(key=lambda r: r["_pxd"], reverse=True)
+    asks.sort(key=lambda r: r["_pxd"])
+
+    cap = 16
+
+    def strip_rows(rs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        out = []
+        for r in rs:
+            out.append(
+                {
+                    "px": r["px"],
+                    "sz": r["sz"],
+                    "n": r["n"],
+                }
+            )
+        return out
+
+    # Asks: от худшей цены к лучшей (к спреду); bids: от лучшей вниз
+    asks_slice = asks[:cap]
+    asks_display = list(reversed(asks_slice))
+    bids_display = bids[:cap]
+
+    best_bid = bids[0]["_pxd"] if bids else None
+    best_ask = asks[0]["_pxd"] if asks else None
+
+    mid: Optional[str] = None
+    spread: Optional[str] = None
+    if best_bid is not None and best_ask is not None:
+        mid_dec = (best_bid + best_ask) / Decimal(2)
+        spr = best_ask - best_bid
+        mid = str(mid_dec)
+        spread = str(spr)
+
+    sz_bid_max = max((r["_szd"] for r in bids_display), default=Decimal(0))
+    sz_ask_max = max((r["_szd"] for r in asks_display), default=Decimal(0))
+
+    return {
+        "ok": True,
+        "coin": raw.get("coin") or coin,
+        "bids": strip_rows(bids_display),
+        "asks": strip_rows(asks_display),
+        "mid": mid,
+        "spread": spread,
+        "sz_bid_max": str(sz_bid_max) if bids_display else None,
+        "sz_ask_max": str(sz_ask_max) if asks_display else None,
+    }

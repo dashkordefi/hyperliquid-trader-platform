@@ -13,6 +13,11 @@ urlpatterns = [
         name="set_hyperliquid_network",
     ),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path(
+        "dashboard/api/orderbook/",
+        views.orderbook_api,
+        name="orderbook_api",
+    ),
     path("trades/", views.trade_history, name="trade_history"),
     path("funds/history/", views.funds_history, name="funds_history"),
     path(

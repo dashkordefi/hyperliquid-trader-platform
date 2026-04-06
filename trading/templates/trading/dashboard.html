@@ -54,7 +54,7 @@
     }
     .trade-market-order-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 320px) minmax(0, 1fr);
         gap: 0.5rem 0.75rem;
         align-items: stretch;
         margin-bottom: 0.65rem;
@@ -62,10 +62,108 @@
         top: 0;
         z-index: 15;
     }
-    @media (max-width: 960px) {
+    @media (max-width: 1180px) {
         .trade-market-order-row {
             grid-template-columns: 1fr;
         }
+    }
+    .trade-orderbook-panel {
+        max-height: min(70vh, 520px);
+        min-height: 280px;
+    }
+    .trade-orderbook-panel .orderbook-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 0.35rem;
+    }
+    .trade-orderbook-panel .orderbook-col-labels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-bottom: 0.2rem;
+        padding: 0 0.1rem;
+    }
+    .trade-orderbook-panel .orderbook-col-labels span:last-child {
+        text-align: right;
+    }
+    .orderbook-asks-wrap, .orderbook-bids-wrap {
+        overflow-y: auto;
+        max-height: 200px;
+    }
+    .orderbook-asks-wrap {
+        margin-bottom: 0.35rem;
+    }
+    .orderbook-spread-line {
+        text-align: center;
+        padding: 0.35rem 0.25rem;
+        margin: 0.15rem 0 0.35rem;
+        border-radius: 6px;
+        background: rgba(88, 166, 255, 0.1);
+        border: 1px solid rgba(88, 166, 255, 0.2);
+        font-size: 0.78rem;
+        font-variant-numeric: tabular-nums;
+    }
+    .orderbook-spread-line .orderbook-mid {
+        font-weight: 700;
+        color: var(--accent);
+    }
+    .orderbook-spread-line .orderbook-spread-txt {
+        display: block;
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-top: 0.15rem;
+    }
+    .orderbook-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.4rem;
+        align-items: center;
+        padding: 0.12rem 0.2rem;
+        border-radius: 3px;
+        font-size: 0.78rem;
+        font-variant-numeric: tabular-nums;
+        position: relative;
+        --ob-depth: 0%;
+    }
+    .orderbook-row--ask {
+        background: linear-gradient(
+            90deg,
+            rgba(248, 81, 73, 0.22) var(--ob-depth),
+            transparent var(--ob-depth)
+        );
+    }
+    .orderbook-row--bid {
+        background: linear-gradient(
+            90deg,
+            rgba(63, 185, 80, 0.2) var(--ob-depth),
+            transparent var(--ob-depth)
+        );
+    }
+    .orderbook-row .orderbook-sz {
+        text-align: left;
+        color: var(--muted);
+    }
+    .orderbook-row .orderbook-px--ask {
+        text-align: right;
+        font-weight: 600;
+        color: #f85149;
+    }
+    .orderbook-row .orderbook-px--bid {
+        text-align: right;
+        font-weight: 600;
+        color: #3fb950;
+    }
+    .orderbook-muted {
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin: 0 0 0.35rem;
+        line-height: 1.35;
     }
     .trade-panel {
         border: 1px solid var(--border);
@@ -351,6 +449,27 @@
         </datalist>
         <p class="trade-apply-row" style="margin-bottom:0"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
     </form>
+    </div>
+</div>
+
+<div class="trade-panel trade-orderbook-panel" id="orderbook-panel"
+     data-api-url="{% url 'orderbook_api' %}"
+     data-market="{{ market_type }}"
+     data-symbol="{{ symbol }}"
+     aria-label="Стакан">
+    <div class="trade-order-block">
+        <div class="orderbook-head">
+            <h3 style="margin:0">Стакан</h3>
+            <span class="muted" style="font-size:0.72rem" id="orderbook-coin">…</span>
+        </div>
+        <p class="orderbook-muted" id="orderbook-status">Загрузка…</p>
+        <div class="orderbook-col-labels"><span>Размер</span><span>Цена</span></div>
+        <div class="orderbook-asks-wrap" id="orderbook-asks" aria-label="Заявки на продажу"></div>
+        <div class="orderbook-spread-line" id="orderbook-spread-line">
+            <span class="orderbook-mid" id="orderbook-mid">—</span>
+            <span class="orderbook-spread-txt" id="orderbook-spread-txt"></span>
+        </div>
+        <div class="orderbook-bids-wrap" id="orderbook-bids" aria-label="Заявки на покупку"></div>
     </div>
 </div>
 
@@ -707,6 +826,104 @@
 {% endblock %}
 {% block extra_js %}
 <script>
+(function () {
+  var panel = document.getElementById("orderbook-panel");
+  if (!panel) return;
+  var apiUrl = panel.getAttribute("data-api-url");
+  var market = panel.getAttribute("data-market") || "perp";
+  var symbol = panel.getAttribute("data-symbol") || "ETH";
+  var asksEl = document.getElementById("orderbook-asks");
+  var bidsEl = document.getElementById("orderbook-bids");
+  var midEl = document.getElementById("orderbook-mid");
+  var spreadTxt = document.getElementById("orderbook-spread-txt");
+  var statusEl = document.getElementById("orderbook-status");
+  var coinEl = document.getElementById("orderbook-coin");
+  var timer = null;
+
+  function fmtPx(s, mx) {
+    var n = parseFloat(String(s).replace(",", "."));
+    if (!isFinite(n)) return String(s);
+    return n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: mx });
+  }
+  function fmtSz(s) {
+    var n = parseFloat(String(s).replace(",", "."));
+    if (!isFinite(n)) return String(s);
+    return n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  }
+
+  function renderRows(levels, maxSz, isAsk) {
+    if (!levels || !levels.length) return '<p class="muted" style="margin:0;font-size:0.75rem">—</p>';
+    var mx = parseFloat(String(maxSz || "0").replace(",", ".")) || 0;
+    return levels
+      .map(function (x) {
+        var sz = parseFloat(String(x.sz).replace(",", ".")) || 0;
+        var pct = mx > 0 ? Math.min(100, (sz / mx) * 100) : 0;
+        var cls = isAsk ? "orderbook-row orderbook-row--ask" : "orderbook-row orderbook-row--bid";
+        var pxCls = isAsk ? "orderbook-px--ask" : "orderbook-px--bid";
+        return (
+          '<div class="' +
+          cls +
+          '" style="--ob-depth:' +
+          pct.toFixed(1) +
+          '%">' +
+          '<span class="orderbook-sz">' +
+          fmtSz(x.sz) +
+          "</span>" +
+          '<span class="' +
+          pxCls +
+          '">' +
+          fmtPx(x.px, 8) +
+          "</span></div>"
+        );
+      })
+      .join("");
+  }
+
+  function tick() {
+    if (!apiUrl) return;
+    var u =
+      apiUrl +
+      "?market=" +
+      encodeURIComponent(market) +
+      "&symbol=" +
+      encodeURIComponent(symbol);
+    fetch(u, { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d.ok) {
+          if (statusEl) statusEl.textContent = d.error || "Ошибка стакана";
+          return;
+        }
+        if (statusEl) statusEl.textContent = "Обновление каждые 2 с · Info API l2Book";
+        if (coinEl) coinEl.textContent = d.coin || "";
+        if (midEl) midEl.textContent = d.mid ? fmtPx(d.mid, 8) : "—";
+        if (spreadTxt) {
+          spreadTxt.textContent = d.spread ? "спред " + fmtPx(d.spread, 6) : "";
+        }
+        if (asksEl) asksEl.innerHTML = renderRows(d.asks, d.sz_ask_max, true);
+        if (bidsEl) bidsEl.innerHTML = renderRows(d.bids, d.sz_bid_max, false);
+      })
+      .catch(function (e) {
+        if (statusEl) statusEl.textContent = "Сеть: " + (e && e.message ? e.message : e);
+      });
+  }
+
+  tick();
+  timer = setInterval(tick, 2000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (timer) clearInterval(timer);
+      timer = null;
+    } else {
+      if (!timer) {
+        tick();
+        timer = setInterval(tick, 2000);
+      }
+    }
+  });
+})();
 (function () {
   var dlg = document.getElementById("usdc-transfer-dialog");
   var cancelBtn = document.getElementById("usdc-transfer-cancel");
