@@ -33,8 +33,8 @@
         padding: 0.45rem 0.65rem 1rem;
     }
     .trade-topbar {
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.4rem;
+        margin-bottom: 0.35rem;
+        padding-bottom: 0.3rem;
         border-bottom: 1px solid var(--border);
     }
     .trade-topbar h1 {
@@ -46,6 +46,7 @@
         display: block;
         max-width: 100%;
         margin-top: 0;
+        padding-top: 0.1rem;
     }
     .trade-center {
         min-width: 0;
@@ -63,17 +64,26 @@
         min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 0.55rem;
+        gap: 0.35rem;
     }
     .trade-left-stack {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.5rem 0.65rem;
+        align-items: stretch;
         position: sticky;
         top: 0;
         z-index: 15;
         background: var(--bg, #0d1117);
-        padding-bottom: 0.25rem;
+        padding-bottom: 0.2rem;
+    }
+    .trade-left-stack > .trade-panel {
+        min-width: 0;
+    }
+    @media (max-width: 960px) {
+        .trade-left-stack {
+            grid-template-columns: 1fr;
+        }
     }
     .trade-main-right {
         min-width: 0;
