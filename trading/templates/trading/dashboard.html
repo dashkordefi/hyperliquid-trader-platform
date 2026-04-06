@@ -45,8 +45,8 @@
     .trade-layout {
         display: block;
         max-width: 100%;
-        margin-top: 0;
-        padding-top: 0.1rem;
+        margin-top: 0.35rem;
+        padding-top: 0.15rem;
     }
     .trade-center {
         min-width: 0;
@@ -67,23 +67,34 @@
         gap: 0.35rem;
     }
     .trade-left-stack {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 0.5rem 0.65rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
         align-items: stretch;
         position: sticky;
         top: 0;
         z-index: 15;
         background: var(--bg, #0d1117);
         padding-bottom: 0.2rem;
+        min-width: 0;
     }
     .trade-left-stack > .trade-panel {
         min-width: 0;
     }
-    @media (max-width: 960px) {
-        .trade-left-stack {
-            grid-template-columns: 1fr;
-        }
+    .trade-chart-panel .chart-panel-head {
+        margin-bottom: 0.4rem;
+    }
+    .hl-chart-container {
+        width: 100%;
+        height: min(42vh, 380px);
+        min-height: 220px;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: #0d1117;
+    }
+    .tv-lightweight-chart {
+        font-family: inherit;
     }
     .trade-main-right {
         min-width: 0;
@@ -467,6 +478,28 @@
 <div class="trade-main-grid">
 <div class="trade-main-left">
 <div class="trade-left-stack">
+<div class="trade-panel trade-chart-panel" id="trade-chart-panel"
+     data-candles-url="{% url 'candles_api' %}"
+     data-market="{{ market_type }}"
+     data-symbol="{{ symbol }}">
+    <div class="trade-order-block">
+        <div class="orderbook-head chart-panel-head">
+            <h3 style="margin:0">График</h3>
+            <label class="muted" style="font-size:0.72rem;display:flex;align-items:center;gap:0.35rem">Таймфрейм
+                <select id="chart-interval" name="chart_interval" aria-label="Таймфрейм графика"
+                    style="font-size:0.78rem;padding:0.2rem 0.35rem;border-radius:4px;background:var(--panel);color:var(--text);border:1px solid var(--border)">
+                    <option value="5m">5m</option>
+                    <option value="15m" selected>15m</option>
+                    <option value="1h">1h</option>
+                    <option value="4h">4h</option>
+                    <option value="1d">1d</option>
+                </select>
+            </label>
+        </div>
+        <div id="hl-chart-container" class="hl-chart-container" role="img" aria-label="Свечной график"></div>
+        <p class="muted" id="chart-status" style="font-size:0.72rem;margin:0.35rem 0 0;line-height:1.35"></p>
+    </div>
+</div>
 <div class="trade-panel trade-instrument-bar" aria-label="Рынок">
     <div class="trade-order-block">
     <h3>Рынок</h3>
@@ -582,6 +615,32 @@
         {% endif %}
     </div>
 </div>
+</div>
+</div>
+
+<aside class="trade-main-right" aria-label="Стакан справа">
+<div class="trade-panel trade-orderbook-panel" id="orderbook-panel"
+     data-api-url="{% url 'orderbook_api' %}"
+     data-market="{{ market_type }}"
+     data-symbol="{{ symbol }}"
+     aria-label="Стакан">
+    <div class="trade-order-block">
+        <div class="orderbook-head">
+            <h3 style="margin:0">Стакан</h3>
+            <span class="muted" style="font-size:0.72rem" id="orderbook-coin">…</span>
+        </div>
+        <p class="orderbook-muted" id="orderbook-status">Загрузка…</p>
+        <div class="orderbook-col-labels"><span>Размер</span><span>Цена</span></div>
+        <div class="orderbook-asks-wrap" id="orderbook-asks" aria-label="Заявки на продажу"></div>
+        <div class="orderbook-spread-line" id="orderbook-spread-line">
+            <span class="orderbook-mid" id="orderbook-mid">—</span>
+            <span class="orderbook-spread-txt" id="orderbook-spread-txt"></span>
+        </div>
+        <div class="orderbook-bids-wrap" id="orderbook-bids" aria-label="Заявки на покупку"></div>
+    </div>
+</div>
+</aside>
+
 </div>
 
 <div class="trade-layout">
@@ -751,32 +810,6 @@
         </div>
     </div>
 </div>
-</div>
-
-<aside class="trade-main-right" aria-label="Стакан справа">
-<div class="trade-panel trade-orderbook-panel" id="orderbook-panel"
-     data-api-url="{% url 'orderbook_api' %}"
-     data-market="{{ market_type }}"
-     data-symbol="{{ symbol }}"
-     aria-label="Стакан">
-    <div class="trade-order-block">
-        <div class="orderbook-head">
-            <h3 style="margin:0">Стакан</h3>
-            <span class="muted" style="font-size:0.72rem" id="orderbook-coin">…</span>
-        </div>
-        <p class="orderbook-muted" id="orderbook-status">Загрузка…</p>
-        <div class="orderbook-col-labels"><span>Размер</span><span>Цена</span></div>
-        <div class="orderbook-asks-wrap" id="orderbook-asks" aria-label="Заявки на продажу"></div>
-        <div class="orderbook-spread-line" id="orderbook-spread-line">
-            <span class="orderbook-mid" id="orderbook-mid">—</span>
-            <span class="orderbook-spread-txt" id="orderbook-spread-txt"></span>
-        </div>
-        <div class="orderbook-bids-wrap" id="orderbook-bids" aria-label="Заявки на покупку"></div>
-    </div>
-</div>
-</aside>
-
-</div>
 
 {% if hl_trading_key_configured %}
 <dialog id="perp-close-limit-dialog" class="trade-modal" aria-labelledby="perp-close-limit-title">
@@ -873,7 +906,109 @@
 {% endif %}
 {% endblock %}
 {% block extra_js %}
+<script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js" crossorigin></script>
 <script>
+(function () {
+  var chartPanel = document.getElementById("trade-chart-panel");
+  var container = document.getElementById("hl-chart-container");
+  if (!chartPanel || !container) return;
+  if (typeof LightweightCharts === "undefined") {
+    var st0 = document.getElementById("chart-status");
+    if (st0) st0.textContent = "График: не загрузилась библиотека (сеть / блокировка CDN).";
+    return;
+  }
+  var apiUrl = chartPanel.getAttribute("data-candles-url");
+  var market = chartPanel.getAttribute("data-market") || "perp";
+  var symbol = chartPanel.getAttribute("data-symbol") || "ETH";
+  var intervalEl = document.getElementById("chart-interval");
+  var statusEl = document.getElementById("chart-status");
+  var chart = null;
+  var series = null;
+
+  function sizeChart() {
+    if (!chart || !container) return;
+    var w = container.clientWidth || 400;
+    var h = container.clientHeight || 220;
+    chart.applyOptions({ width: w, height: h });
+  }
+
+  function initChart() {
+    if (chart) {
+      chart.remove();
+      chart = null;
+      series = null;
+    }
+    chart = LightweightCharts.createChart(container, {
+      layout: { background: { color: "#0d1117" }, textColor: "#8b949e" },
+      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
+      rightPriceScale: { borderColor: "#30363d" },
+      timeScale: { borderColor: "#30363d", timeVisible: true, secondsVisible: false },
+      width: container.clientWidth || 400,
+      height: container.clientHeight || 220,
+    });
+    series = chart.addCandlestickSeries({
+      upColor: "#3fb950",
+      downColor: "#f85149",
+      borderVisible: false,
+      wickUpColor: "#3fb950",
+      wickDownColor: "#f85149",
+    });
+  }
+
+  function loadCandles() {
+    var v = intervalEl ? intervalEl.value : "15m";
+    if (!series) initChart();
+    if (statusEl) statusEl.textContent = "Загрузка свечей…";
+    var u =
+      apiUrl +
+      "?market=" +
+      encodeURIComponent(market) +
+      "&symbol=" +
+      encodeURIComponent(symbol) +
+      "&interval=" +
+      encodeURIComponent(v);
+    fetch(u, { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d.ok) {
+          if (statusEl) statusEl.textContent = d.error || "Ошибка candleSnapshot";
+          return;
+        }
+        var rows = (d.candles || []).map(function (c) {
+          return {
+            time: c.time,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          };
+        });
+        series.setData(rows);
+        chart.timeScale().fitContent();
+        if (statusEl) {
+          statusEl.textContent =
+            (d.coin || "") +
+            " · " +
+            (d.interval || v) +
+            " · " +
+            rows.length +
+            " свечей (Hyperliquid Info API, без хранения на сервере)";
+        }
+        sizeChart();
+      })
+      .catch(function (e) {
+        if (statusEl) statusEl.textContent = "Сеть: " + (e && e.message ? e.message : e);
+      });
+  }
+
+  loadCandles();
+  if (intervalEl) intervalEl.addEventListener("change", loadCandles);
+  window.addEventListener("resize", function () {
+    sizeChart();
+  });
+})();
 (function () {
   var panel = document.getElementById("orderbook-panel");
   if (!panel) return;

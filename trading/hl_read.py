@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
@@ -1232,4 +1233,61 @@ def fetch_l2_book_for_dashboard(coin: str) -> dict[str, Any]:
         "spread": spread,
         "sz_bid_max": str(sz_bid_max) if bids_display else None,
         "sz_ask_max": str(sz_ask_max) if asks_display else None,
+    }
+
+
+def fetch_candles_for_chart(
+    coin: str,
+    interval: str = "15m",
+    lookback_ms: Optional[int] = None,
+) -> dict[str, Any]:
+    """
+    Свечи candleSnapshot для графика (данные не хранятся — только запрос к Info API).
+    """
+    if lookback_ms is None:
+        lookback_ms = 10 * 24 * 60 * 60 * 1000  # 10 суток
+    client = _info_client()
+    end_ms = int(time.time() * 1000)
+    start_ms = end_ms - lookback_ms
+    try:
+        raw = client.candle_snapshot(coin, interval, start_ms, end_ms)
+    except HyperliquidInfoError as e:
+        return {"ok": False, "error": str(e), "candles": [], "coin": coin, "interval": interval}
+    except Exception as e:
+        logger.exception("fetch_candles_for_chart")
+        return {"ok": False, "error": str(e), "candles": [], "coin": coin, "interval": interval}
+
+    candles: list[dict[str, Any]] = []
+    if not isinstance(raw, list):
+        return {
+            "ok": True,
+            "coin": coin,
+            "interval": interval,
+            "candles": [],
+            "error": None,
+        }
+
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        t = row.get("t")
+        if t is None:
+            continue
+        try:
+            ts = int(t) // 1000
+            o = float(str(row.get("o", "0")))
+            h = float(str(row.get("h", "0")))
+            l = float(str(row.get("l", "0")))
+            c = float(str(row.get("c", "0")))
+        except (TypeError, ValueError):
+            continue
+        candles.append({"time": ts, "open": o, "high": h, "low": l, "close": c})
+
+    candles.sort(key=lambda x: x["time"])
+    return {
+        "ok": True,
+        "coin": coin,
+        "interval": interval,
+        "candles": candles,
+        "error": None,
     }

@@ -18,6 +18,11 @@ urlpatterns = [
         views.orderbook_api,
         name="orderbook_api",
     ),
+    path(
+        "dashboard/api/candles/",
+        views.candles_api,
+        name="candles_api",
+    ),
     path("trades/", views.trade_history, name="trade_history"),
     path("funds/history/", views.funds_history, name="funds_history"),
     path(

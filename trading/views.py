@@ -30,6 +30,7 @@ from .hl_network import hl_testnet_enabled
 from .hl_read import (
     compute_perp_market_order_size,
     fetch_dashboard_data,
+    fetch_candles_for_chart,
     fetch_l2_book_for_dashboard,
     fetch_perp_leverage_setting_for_update,
     fetch_usdc_transfer_max_amount,
@@ -339,6 +340,34 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             "hl_trading_key_configured": hl_trading_key_configured,
         },
     )
+
+
+@login_required
+def candles_api(request: HttpRequest) -> JsonResponse:
+    """Свечи candleSnapshot для графика (без хранения — только HL Info API)."""
+    if not _is_trader(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+    market_type = (request.GET.get("market") or "perp").strip().lower()
+    if market_type not in ("spot", "perp"):
+        market_type = "perp"
+    symbol = (request.GET.get("symbol") or "ETH").strip()
+    interval = (request.GET.get("interval") or "15m").strip()
+    if interval not in (
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "8h",
+        "12h",
+        "1d",
+    ):
+        interval = "15m"
+    coin = resolve_api_coin(market_type, symbol)
+    return JsonResponse(fetch_candles_for_chart(coin, interval=interval))
 
 
 @login_required
