@@ -478,28 +478,6 @@
 <div class="trade-main-grid">
 <div class="trade-main-left">
 <div class="trade-left-stack">
-<div class="trade-panel trade-chart-panel" id="trade-chart-panel"
-     data-candles-url="{% url 'candles_api' %}"
-     data-market="{{ market_type }}"
-     data-symbol="{{ symbol }}">
-    <div class="trade-order-block">
-        <div class="orderbook-head chart-panel-head">
-            <h3 style="margin:0">График</h3>
-            <label class="muted" style="font-size:0.72rem;display:flex;align-items:center;gap:0.35rem">Таймфрейм
-                <select id="chart-interval" name="chart_interval" aria-label="Таймфрейм графика"
-                    style="font-size:0.78rem;padding:0.2rem 0.35rem;border-radius:4px;background:var(--panel);color:var(--text);border:1px solid var(--border)">
-                    <option value="5m">5m</option>
-                    <option value="15m" selected>15m</option>
-                    <option value="1h">1h</option>
-                    <option value="4h">4h</option>
-                    <option value="1d">1d</option>
-                </select>
-            </label>
-        </div>
-        <div id="hl-chart-container" class="hl-chart-container" role="img" aria-label="Свечной график"></div>
-        <p class="muted" id="chart-status" style="font-size:0.72rem;margin:0.35rem 0 0;line-height:1.35"></p>
-    </div>
-</div>
 <div class="trade-panel trade-instrument-bar" aria-label="Рынок">
     <div class="trade-order-block">
     <h3>Рынок</h3>
@@ -525,6 +503,28 @@
         </datalist>
         <p class="trade-apply-row" style="margin-bottom:0"><button type="submit" class="secondary" style="width:100%">Применить</button></p>
     </form>
+    </div>
+</div>
+<div class="trade-panel trade-chart-panel" id="trade-chart-panel"
+     data-candles-url="{% url 'candles_api' %}"
+     data-market="{{ market_type }}"
+     data-symbol="{{ symbol }}">
+    <div class="trade-order-block">
+        <div class="orderbook-head chart-panel-head">
+            <h3 style="margin:0">График</h3>
+            <label class="muted" style="font-size:0.72rem;display:flex;align-items:center;gap:0.35rem">Таймфрейм
+                <select id="chart-interval" name="chart_interval" aria-label="Таймфрейм графика"
+                    style="font-size:0.78rem;padding:0.2rem 0.35rem;border-radius:4px;background:var(--panel);color:var(--text);border:1px solid var(--border)">
+                    <option value="5m">5m</option>
+                    <option value="15m" selected>15m</option>
+                    <option value="1h">1h</option>
+                    <option value="4h">4h</option>
+                    <option value="1d">1d</option>
+                </select>
+            </label>
+        </div>
+        <div id="hl-chart-container" class="hl-chart-container" role="img" aria-label="Свечной график"></div>
+        <p class="muted" id="chart-status" style="font-size:0.72rem;margin:0.35rem 0 0;line-height:1.35"></p>
     </div>
 </div>
 
