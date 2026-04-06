@@ -2,11 +2,22 @@
 {% block title %}{% if kind == "deposit" %}Депозит{% else %}Вывод{% endif %}{% endblock %}
 {% block content %}
 <h1>{% if kind == "deposit" %}Заявка на депозит{% else %}Заявка на вывод{% endif %}</h1>
-<p class="muted">Кошелёк: {{ wallet.label }} · После создания заявки нужны два согласования (compliance и middle office).</p>
+<p class="muted">Кошелёк: {{ wallet.label }} ·
+{% if funds_require_approvals %}
+После создания заявки нужны два согласования (compliance и middle office).
+{% else %}
+После отправки заявки исполнение запускается сразу (без согласований).
+{% endif %}
+</p>
 
 {% if kind == "deposit" %}
 <div class="card" style="margin-bottom:1rem;border-color:var(--border);font-size:0.9rem;line-height:1.5">
-    <strong>Как это работает:</strong> заявка → согласования compliance и middle office →
+    <strong>Как это работает:</strong>
+    {% if funds_require_approvals %}
+    заявка → согласования compliance и middle office →
+    {% else %}
+    заявка →
+    {% endif %}
     <strong>сервер подписывает транзакцию</strong> ключом кошелька (ключ должен быть сохранён в карточке кошелька)
     и отправляет перевод на контракт bridge Hyperliquid (USDC на Arbitrum) или на Unit-адрес (ETH на Ethereum), в зависимости от способа.
     Минимум для USDC через bridge — <strong>5 USDC</strong>;

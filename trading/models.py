@@ -99,6 +99,8 @@ class FundsOperationRequest(models.Model):
         return f"{self.get_kind_display()} {self.amount} ({self.get_route_display()})"
 
     def both_approved(self) -> bool:
+        if not getattr(settings, "FUNDS_REQUIRE_APPROVALS", True):
+            return True
         return (
             self.compliance_approved_at is not None
             and self.middleoffice_approved_at is not None
@@ -111,10 +113,12 @@ class FundsOperationRequest(models.Model):
             return "rejected"
         if self.executed_at is not None:
             return "executed"
-        if self.compliance_approved_at is None:
-            return "pending_compliance"
-        if self.middleoffice_approved_at is None:
-            return "pending_mo"
+        reqs = getattr(settings, "FUNDS_REQUIRE_APPROVALS", True)
+        if reqs:
+            if self.compliance_approved_at is None:
+                return "pending_compliance"
+            if self.middleoffice_approved_at is None:
+                return "pending_mo"
         if self.withdrawal_bridge_submitted_at is not None:
             return "pending_arbitrum_finalization"
         return "pending_blockchain"
@@ -125,10 +129,12 @@ class FundsOperationRequest(models.Model):
             return "Отклонена"
         if self.executed_at:
             return "Исполнена в блокчейне"
-        if self.compliance_approved_at is None:
-            return "Ожидает согласования compliance"
-        if self.middleoffice_approved_at is None:
-            return "Ожидает согласования middle office"
+        reqs = getattr(settings, "FUNDS_REQUIRE_APPROVALS", True)
+        if reqs:
+            if self.compliance_approved_at is None:
+                return "Ожидает согласования compliance"
+            if self.middleoffice_approved_at is None:
+                return "Ожидает согласования middle office"
         if self.withdrawal_bridge_submitted_at is not None:
             return "USDC в пути: ожидаем финализацию на Arbitrum (FinalizedWithdrawal)"
         return "Согласовано, ожидает исполнения в блокчейне"

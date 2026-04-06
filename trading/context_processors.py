@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from .hl_network import hl_testnet_enabled
 from .models import FundsOperationRequest, TraderWallet
 
@@ -66,8 +68,9 @@ def hyperliquid_network(request):
 
 
 def roles(request):
+    fa = getattr(settings, "FUNDS_REQUIRE_APPROVALS", True)
     if not request.user.is_authenticated:
-        return {}
+        return {"funds_require_approvals": fa}
     u = request.user
     g = set(u.groups.values_list("name", flat=True))
     su = u.is_superuser
@@ -75,4 +78,5 @@ def roles(request):
         "is_trader": su or "traders" in g,
         "is_compliance": su or "compliance_approver" in g,
         "is_middleoffice": su or "middleoffice_approver" in g,
+        "funds_require_approvals": fa,
     }

@@ -379,6 +379,13 @@ HYPERUNIT_ETH_DEPOSIT_ADDRESS_MAP_JSON_TESTNET = os.environ.get(
     "",
 ).strip()
 
+# Депозит/вывод: при True нужны два аппрува (compliance + middle office). При False — исполнение
+# сразу после создания заявки трейдером (без согласований). На Render: см. render.yaml.
+FUNDS_REQUIRE_APPROVALS = os.environ.get(
+    "FUNDS_REQUIRE_APPROVALS",
+    "true",
+).lower() in ("true", "1", "yes")
+
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 

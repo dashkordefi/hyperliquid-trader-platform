@@ -973,7 +973,7 @@ def operation_request_view(request: HttpRequest, kind: str) -> HttpResponse:
             withdraw_limits=withdraw_limits,
         )
         if form.is_valid():
-            FundsOperationRequest.objects.create(
+            op = FundsOperationRequest.objects.create(
                 wallet=wallet,
                 kind=op_kind,
                 route=form.cleaned_data["route"],
@@ -981,7 +981,26 @@ def operation_request_view(request: HttpRequest, kind: str) -> HttpResponse:
                 note=form.cleaned_data.get("note") or "",
                 hl_testnet=hl_testnet_enabled(),
             )
-            if op_kind == FundsOperationRequest.Kind.DEPOSIT:
+            if not getattr(settings, "FUNDS_REQUIRE_APPROVALS", True):
+                if op.kind == FundsOperationRequest.Kind.WITHDRAW:
+                    ok, exec_msg = try_execute_approved_withdraw(op, request)
+                    if not ok:
+                        messages.error(request, f"Вывод: {exec_msg}")
+                    elif "отправлен" in exec_msg.lower():
+                        messages.success(request, exec_msg)
+                    elif "уже исполнена" in exec_msg.lower():
+                        pass
+                    else:
+                        messages.info(request, exec_msg)
+                else:
+                    ok, dep_msg = try_execute_approved_deposit(op, request)
+                    if not ok:
+                        messages.error(request, f"Депозит: {dep_msg}")
+                    elif "уже исполнена" in dep_msg.lower():
+                        pass
+                    else:
+                        messages.success(request, dep_msg)
+            elif op_kind == FundsOperationRequest.Kind.DEPOSIT:
                 messages.success(
                     request,
                     "Заявка на депозит создана. После согласований compliance и middle office "
